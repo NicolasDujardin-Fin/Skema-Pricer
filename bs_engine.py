@@ -341,6 +341,228 @@ def spot_vol_matrix(
 
 
 # ---------------------------------------------------------------------------
+# Gamma ladders
+# ---------------------------------------------------------------------------
+
+def gamma_spot_ladder(
+    S_min: float,
+    S_max: float,
+    n_spots: int,
+    K: float,
+    T: float,
+    r: float,
+    q: float,
+    repo: float,
+    sigma: float,
+) -> list[dict]:
+    """Gamma as a function of spot for a fixed volatility.
+
+    Gamma peaks at-the-money and decays symmetrically on both sides.
+    Its shape is a scaled normal PDF centered around the forward price.
+
+    Parameters
+    ----------
+    S_min, S_max : float
+        Spot range bounds.
+    n_spots : int
+        Number of spot levels.
+    K : float
+        Strike price.
+    T : float
+        Time to maturity in years.
+    r, q, repo : float
+        Risk-free rate, dividend yield, repo rate.
+    sigma : float
+        Annualised volatility.
+
+    Returns
+    -------
+    list[dict] with keys:
+        spot, gamma, call_delta, put_delta, call_price, put_price
+    """
+    spots = np.linspace(S_min, S_max, n_spots)
+    results = []
+    for S in spots:
+        g  = bs_greeks(S, K, T, r, q, repo, sigma, "call")
+        gp = bs_greeks(S, K, T, r, q, repo, sigma, "put")
+        results.append({
+            "spot":       S,
+            "gamma":      g["gamma"],          # identical for call and put
+            "call_delta": g["delta"],
+            "put_delta":  gp["delta"],
+            "call_price": bs_price(S, K, T, r, q, repo, sigma, "call"),
+            "put_price":  bs_price(S, K, T, r, q, repo, sigma, "put"),
+        })
+    return results
+
+
+def gamma_vol_ladder(
+    vol_min: float,
+    vol_max: float,
+    n_vols: int,
+    K: float,
+    T: float,
+    r: float,
+    q: float,
+    repo: float,
+    spots: list[float],
+) -> list[dict]:
+    """Gamma as a function of volatility for several spot levels (ATM, ITM, OTM).
+
+    Key insight:
+    - ATM gamma decreases monotonically as vol rises (the bell flattens).
+    - ITM/OTM gamma first rises (bell widens toward these spots) then falls.
+
+    Parameters
+    ----------
+    vol_min, vol_max : float
+        Volatility range bounds.
+    n_vols : int
+        Number of vol levels.
+    K : float
+        Strike price.
+    T : float
+        Time to maturity in years.
+    r, q, repo : float
+        Risk-free rate, dividend yield, repo rate.
+    spots : list[float]
+        Fixed spot prices to evaluate (e.g. [80, 100, 120]).
+
+    Returns
+    -------
+    list[dict], one entry per vol level, with keys:
+        vol, and one gamma_S{s} key per spot in spots.
+    """
+    vols = np.linspace(vol_min, vol_max, n_vols)
+    results = []
+    for sigma in vols:
+        row: dict = {"vol": sigma}
+        for S in spots:
+            g = bs_greeks(S, K, T, r, q, repo, sigma, "call")
+            row[f"gamma_S{int(S)}"] = g["gamma"]
+        results.append(row)
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Cash delta ladders
+# ---------------------------------------------------------------------------
+
+def cash_delta_spot_ladder(
+    S_min: float,
+    S_max: float,
+    n_spots: int,
+    K: float,
+    T: float,
+    r: float,
+    q: float,
+    repo: float,
+    sigma: float,
+    n_lots: float = 1.0,
+    multiplier: float = 100.0,
+) -> list[dict]:
+    """Spot ladder enriched with cash delta for call and put.
+
+    Cash delta represents the monetary P&L sensitivity to a unit move in spot:
+        cash_delta = n_lots * delta * multiplier * spot
+
+    Parameters
+    ----------
+    S_min, S_max : float
+        Spot range bounds.
+    n_spots : int
+        Number of spot levels.
+    K : float
+        Strike price.
+    T : float
+        Time to maturity in years.
+    r, q, repo : float
+        Risk-free rate, dividend yield, repo rate.
+    sigma : float
+        Annualised volatility.
+    n_lots : float
+        Number of option contracts held (positive = long).
+    multiplier : float
+        Contract multiplier (e.g. 100 for standard equity options).
+
+    Returns
+    -------
+    list[dict] with all keys from spot_ladder plus:
+        - "call_cash_delta" : float  (cash delta of the call position)
+        - "put_cash_delta"  : float  (cash delta of the put position)
+    """
+    base = spot_ladder(S_min, S_max, n_spots, K, T, r, q, repo, sigma)
+    for row in base:
+        S = row["spot"]
+        row["call_cash_delta"] = n_lots * row["call_delta"] * multiplier * S
+        row["put_cash_delta"]  = n_lots * row["put_delta"]  * multiplier * S
+    return base
+
+
+def delta_vol_ladder(
+    vol_min: float,
+    vol_max: float,
+    n_vols: int,
+    S: float,
+    K: float,
+    T: float,
+    r: float,
+    q: float,
+    repo: float,
+    n_lots: float = 1.0,
+    multiplier: float = 100.0,
+    option_type: str = "call",
+) -> list[dict]:
+    """Vol ladder focused on delta and cash delta, for a fixed spot and strike.
+
+    Useful to demonstrate the vol-delta relationship:
+    - ITM call (S > K): delta > 0.5, decreases toward 0.5 as vol rises.
+    - OTM call (S < K): delta < 0.5, increases toward 0.5 as vol rises.
+    Both cases converge to 0.5 as vol -> infinity (log-normal flattening).
+
+    Parameters
+    ----------
+    vol_min, vol_max : float
+        Volatility range bounds.
+    n_vols : int
+        Number of vol levels.
+    S : float
+        Spot price (fixed).
+    K : float
+        Strike price.
+    T : float
+        Time to maturity in years.
+    r, q, repo : float
+        Risk-free rate, dividend yield, repo rate.
+    n_lots : float
+        Number of contracts held.
+    multiplier : float
+        Contract multiplier.
+    option_type : str
+        "call" or "put".
+
+    Returns
+    -------
+    list[dict] with keys:
+        vol, price, delta, cash_delta
+    """
+    vols = np.linspace(vol_min, vol_max, n_vols)
+    results = []
+    for sigma in vols:
+        price  = bs_price(S, K, T, r, q, repo, sigma, option_type)
+        greeks = bs_greeks(S, K, T, r, q, repo, sigma, option_type)
+        delta  = greeks["delta"]
+        cash_d = n_lots * delta * multiplier * S
+        results.append({
+            "vol":        sigma,
+            "price":      price,
+            "delta":      delta,
+            "cash_delta": cash_d,
+        })
+    return results
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
@@ -446,5 +668,157 @@ if __name__ == "__main__":
             f"{row['put_price']:>{cw}.4f}"
             f"{row['vega']:>{cw}.4f}"
         )
+
+    # -----------------------------------------------------------------------
+    # Test 5 - Cash delta spot ladder
+    # -----------------------------------------------------------------------
+    n_lots, multiplier = 10, 100   # 10 contracts, 100 shares each
+
+    ladder_cd = cash_delta_spot_ladder(70, 130, 13, K, T, r, q, repo, sigma,
+                                       n_lots=n_lots, multiplier=multiplier)
+
+    cw2 = 14
+    print(f"\n{sep84}")
+    print(f"  Test 5 - Cash delta spot ladder")
+    print(f"  K=100, T=1, r=5%, q=2%, repo=0%, vol=20%  |  {n_lots} lots x {multiplier} multiplier")
+    print(sep84)
+    print(f"  cash_delta = n_lots * delta * multiplier * spot")
+    hdr5 = (
+        f"{'Spot':>{cw2}}"
+        f"{'C.Delta':>{cw2}}"
+        f"{'P.Delta':>{cw2}}"
+        f"{'C.CashDelta':>{cw2}}"
+        f"{'P.CashDelta':>{cw2}}"
+    )
+    print(f"\n{hdr5}")
+    print("-" * (cw2 * 5))
+    for row in ladder_cd:
+        print(
+            f"{row['spot']:>{cw2}.1f}"
+            f"{row['call_delta']:>{cw2}.4f}"
+            f"{row['put_delta']:>{cw2}.4f}"
+            f"{row['call_cash_delta']:>{cw2}.1f}"
+            f"{row['put_cash_delta']:>{cw2}.1f}"
+        )
+    print(f"  Note: call cash delta is always positive (long exposure),")
+    print(f"  put cash delta always negative. Both peak/trough around ATM.")
+
+    # -----------------------------------------------------------------------
+    # Test 6 - Delta vol ladder: ITM vs OTM convergence
+    # -----------------------------------------------------------------------
+    print(f"\n{sep84}")
+    print(f"  Test 6 - Delta vs Vol  |  K=100, T=1, r=5%, q=2%, repo=0%  |  {n_lots} lots x {multiplier}")
+    print(sep84)
+    print(f"  Calls: ITM (S=120) delta starts HIGH and falls toward 0.5 as vol rises.")
+    print(f"         OTM (S= 80) delta starts LOW  and rises toward 0.5 as vol rises.")
+
+    itm_ladder = delta_vol_ladder(0.05, 0.80, 16, S=120, K=100,
+                                   T=T, r=r, q=q, repo=repo,
+                                   n_lots=n_lots, multiplier=multiplier,
+                                   option_type="call")
+    otm_ladder = delta_vol_ladder(0.05, 0.80, 16, S=80,  K=100,
+                                   T=T, r=r, q=q, repo=repo,
+                                   n_lots=n_lots, multiplier=multiplier,
+                                   option_type="call")
+
+    cw3 = 13
+    hdr6 = (
+        f"{'Vol':>{cw3}}"
+        f"{'ITM delta':>{cw3}}"
+        f"{'ITM $delta':>{cw3}}"
+        f"{'OTM delta':>{cw3}}"
+        f"{'OTM $delta':>{cw3}}"
+        f"  {'Direction'}"
+    )
+    print(f"\n{hdr6}")
+    print("-" * (cw3 * 5 + 14))
+    for itm, otm in zip(itm_ladder, otm_ladder):
+        itm_dir = "v" if itm_ladder.index(itm) > 0 and itm["delta"] < itm_ladder[itm_ladder.index(itm)-1]["delta"] else " "
+        otm_dir = "^" if otm_ladder.index(otm) > 0 and otm["delta"] > otm_ladder[otm_ladder.index(otm)-1]["delta"] else " "
+        print(
+            f"{itm['vol']:>{cw3}.2%}"
+            f"{itm['delta']:>{cw3}.4f}"
+            f"{itm['cash_delta']:>{cw3}.1f}"
+            f"{otm['delta']:>{cw3}.4f}"
+            f"{otm['cash_delta']:>{cw3}.1f}"
+            f"  ITM:{itm_dir}  OTM:{otm_dir}"
+        )
+    delta_inf = np.exp(-(q + repo) * T)
+    print(f"\n  Asymptotic limit as vol -> inf: delta -> exp(-(q+repo)*T) = {delta_inf:.4f} for BOTH.")
+    print(f"  ITM starts near {delta_inf:.2f} (vol~0 limit), dips, then climbs back.")
+    print(f"  OTM starts near 0 (vol~0 limit), climbs steadily toward the same limit.")
+
+    # -----------------------------------------------------------------------
+    # Test 7 - Gamma spot ladder (fixed vol)
+    # -----------------------------------------------------------------------
+    print(f"\n{sep84}")
+    print(f"  Test 7 - Gamma vs Spot  |  K=100, T=1, r=5%, q=2%, repo=0%, vol=20%")
+    print(f"  Gamma = exp(-(q+repo)*T) * n(d1) / (S * sigma * sqrt(T))")
+    print(f"  Peaks ATM, decays on both sides (bell shape centred near forward).")
+    print(sep84)
+
+    gsl = gamma_spot_ladder(70, 130, 13, K, T, r, q, repo, sigma)
+
+    cw_g = 12
+    hdr7 = (
+        f"{'Spot':>{cw_g}}"
+        f"{'Gamma':>{cw_g}}"
+        f"{'C.Delta':>{cw_g}}"
+        f"{'P.Delta':>{cw_g}}"
+        f"{'Call':>{cw_g}}"
+        f"{'Put':>{cw_g}}"
+    )
+    print(f"\n{hdr7}")
+    print("-" * (cw_g * 6))
+    for row in gsl:
+        # bar: visual indicator proportional to gamma (max 20 chars)
+        max_g = max(r["gamma"] for r in gsl)
+        bar = "#" * int(row["gamma"] / max_g * 20)
+        print(
+            f"{row['spot']:>{cw_g}.1f}"
+            f"{row['gamma']:>{cw_g}.6f}"
+            f"{row['call_delta']:>{cw_g}.4f}"
+            f"{row['put_delta']:>{cw_g}.4f}"
+            f"{row['call_price']:>{cw_g}.4f}"
+            f"{row['put_price']:>{cw_g}.4f}"
+            f"  {bar}"
+        )
+
+    # -----------------------------------------------------------------------
+    # Test 8 - Gamma vol ladder (ATM / ITM / OTM)
+    # -----------------------------------------------------------------------
+    spot_levels = [80, 100, 120]   # OTM, ATM, ITM
+    gvl = gamma_vol_ladder(0.05, 0.80, 16, K, T, r, q, repo, spots=spot_levels)
+
+    print(f"\n{sep84}")
+    print(f"  Test 8 - Gamma vs Vol  |  K=100, T=1, r=5%, q=2%, repo=0%")
+    print(f"  ATM  (S=100): gamma falls monotonically as vol rises (bell flattens).")
+    print(f"  OTM  (S= 80): gamma rises first (bell widens to reach S=80) then falls.")
+    print(f"  ITM  (S=120): same hump behaviour as OTM by symmetry.")
+    print(sep84)
+
+    cw_v = 14
+    hdr8 = (
+        f"{'Vol':>{cw_v}}"
+        + "".join(f"{'Gamma S='+str(s):>{cw_v}}" for s in spot_levels)
+    )
+    print(f"\n{hdr8}")
+    print("-" * (cw_v * (1 + len(spot_levels))))
+    prev = None
+    for row in gvl:
+        parts = f"{row['vol']:>{cw_v}.2%}"
+        for S in spot_levels:
+            key = f"gamma_S{int(S)}"
+            g = row[key]
+            if prev is not None:
+                arrow = "v" if g < prev[key] else "^"
+            else:
+                arrow = " "
+            parts += f"{g:>{cw_v - 1}.6f}{arrow}"
+        print(parts)
+        prev = row
+
+    print(f"\n  Rule: ATM gamma always ^ when vol falls (=> long gamma = long vol ATM).")
+    print(f"  OTM/ITM gamma has a hump: it peaks at the vol where the bell covers that spot.")
 
     print()
