@@ -77,11 +77,15 @@ class State(rx.State):
 
     @rx.var(cache=True)
     def S_min(self) -> float:
-        return round(self.S * (1.0 - self.spot_range_pct), 4)
+        center = self.K
+        half = max(self.spot_range_pct * center, abs(self.S - self.K) * 1.3)
+        return round(center - half, 4)
 
     @rx.var(cache=True)
     def S_max(self) -> float:
-        return round(self.S * (1.0 + self.spot_range_pct), 4)
+        center = self.K
+        half = max(self.spot_range_pct * center, abs(self.S - self.K) * 1.3)
+        return round(center + half, 4)
 
     @rx.var(cache=True)
     def T_years_str(self) -> str:
@@ -864,9 +868,9 @@ def _chart(title: str, lines: list, data_key_x: str, data, h: int = 240, w: int 
         rx.text(title, font_size="2", font_weight="600", color=_TEXT),
         rx.recharts.line_chart(
             *lines,
-            rx.recharts.x_axis(data_key=data_key_x),
-            rx.recharts.y_axis(),
-            rx.recharts.cartesian_grid(stroke_dasharray="3 3", opacity=0.4),
+            rx.recharts.x_axis(data_key=data_key_x, stroke="#bbb", tick_line=False),
+            rx.recharts.y_axis(stroke="#bbb", tick_line=False),
+            rx.recharts.cartesian_grid(stroke="#e5e5e5", horizontal=True, vertical=False),
             rx.recharts.legend(vertical_align="top"),
             rx.recharts.graphing_tooltip(),
             data=data,
@@ -1101,9 +1105,10 @@ def pricer_tab() -> rx.Component:
                 padding="6px 12px",
                 **CARD_STYLE,
             ),
-            # Greeks table + 2 Charts side by side
+            # Greeks table
+            greeks_table(),
+            # 2 Charts side by side below
             rx.hstack(
-                greeks_table(),
                 # Chart 1: Greek vs Spot
                 rx.box(
                     rx.hstack(
@@ -1189,7 +1194,6 @@ def pricer_tab() -> rx.Component:
                 chart2_box(),
                 align="start",
                 spacing="4",
-                margin_top="-0.5em",
             ),
             spacing="4",
             flex="1",
@@ -1317,9 +1321,9 @@ def ladders_tab() -> rx.Component:
                                      stroke_width=2, dot=False, name="Call Delta"),
                     rx.recharts.line(data_key="put_delta",  stroke="#e53e3e",
                                      stroke_width=2, dot=False, name="Put Delta"),
-                    rx.recharts.x_axis(data_key="spot"),
-                    rx.recharts.y_axis(),
-                    rx.recharts.cartesian_grid(stroke_dasharray="3 3", opacity=0.4),
+                    rx.recharts.x_axis(data_key="spot", stroke="#bbb", tick_line=False),
+                    rx.recharts.y_axis(stroke="#bbb", tick_line=False),
+                    rx.recharts.cartesian_grid(stroke="#e5e5e5", horizontal=True, vertical=False),
                     rx.recharts.legend(vertical_align="top"),
                     rx.recharts.graphing_tooltip(),
                     data=State.spot_ladder_data,
@@ -1331,9 +1335,9 @@ def ladders_tab() -> rx.Component:
                                      stroke_width=2, dot=False, name="Call Cash$"),
                     rx.recharts.line(data_key="put_cash_delta",  stroke="#dd6b20",
                                      stroke_width=2, dot=False, name="Put Cash$"),
-                    rx.recharts.x_axis(data_key="spot"),
-                    rx.recharts.y_axis(),
-                    rx.recharts.cartesian_grid(stroke_dasharray="3 3", opacity=0.4),
+                    rx.recharts.x_axis(data_key="spot", stroke="#bbb", tick_line=False),
+                    rx.recharts.y_axis(stroke="#bbb", tick_line=False),
+                    rx.recharts.cartesian_grid(stroke="#e5e5e5", horizontal=True, vertical=False),
                     rx.recharts.legend(vertical_align="top"),
                     rx.recharts.graphing_tooltip(),
                     data=State.spot_ladder_data,
@@ -1353,9 +1357,9 @@ def ladders_tab() -> rx.Component:
                                  stroke_width=2, dot=False, name="Price"),
                 rx.recharts.line(data_key="delta",      stroke="#805ad5",
                                  stroke_width=2, dot=False, name="Delta"),
-                rx.recharts.x_axis(data_key="vol"),
-                rx.recharts.y_axis(),
-                rx.recharts.cartesian_grid(stroke_dasharray="3 3", opacity=0.4),
+                rx.recharts.x_axis(data_key="vol", stroke="#bbb", tick_line=False),
+                rx.recharts.y_axis(stroke="#bbb", tick_line=False),
+                rx.recharts.cartesian_grid(stroke="#e5e5e5", horizontal=True, vertical=False),
                 rx.recharts.legend(vertical_align="top"),
                 rx.recharts.graphing_tooltip(),
                 data=State.vol_ladder_data,
@@ -1413,9 +1417,9 @@ def gamma_tab() -> rx.Component:
                 rx.recharts.line_chart(
                     rx.recharts.line(data_key="gamma", stroke="#e67e22",
                                      stroke_width=2, dot=False, name="Gamma"),
-                    rx.recharts.x_axis(data_key="spot"),
-                    rx.recharts.y_axis(),
-                    rx.recharts.cartesian_grid(stroke_dasharray="3 3", opacity=0.4),
+                    rx.recharts.x_axis(data_key="spot", stroke="#bbb", tick_line=False),
+                    rx.recharts.y_axis(stroke="#bbb", tick_line=False),
+                    rx.recharts.cartesian_grid(stroke="#e5e5e5", horizontal=True, vertical=False),
                     rx.recharts.graphing_tooltip(),
                     data=State.gamma_spot_data,
                     width=520,
@@ -1436,10 +1440,10 @@ def gamma_tab() -> rx.Component:
                                      stroke_width=2, dot=False, name="ATM (S)"),
                     rx.recharts.line(data_key="gamma_itm", stroke="#38a169",
                                      stroke_width=2, dot=False, name="ITM (S×1.2)"),
-                    rx.recharts.x_axis(data_key="vol",
+                    rx.recharts.x_axis(data_key="vol", stroke="#bbb", tick_line=False,
                                        label={"value": "Vol %", "position": "insideBottom", "offset": -4}),
-                    rx.recharts.y_axis(),
-                    rx.recharts.cartesian_grid(stroke_dasharray="3 3", opacity=0.4),
+                    rx.recharts.y_axis(stroke="#bbb", tick_line=False),
+                    rx.recharts.cartesian_grid(stroke="#e5e5e5", horizontal=True, vertical=False),
                     rx.recharts.legend(vertical_align="top"),
                     rx.recharts.graphing_tooltip(),
                     data=State.gamma_vol_data,
@@ -1508,10 +1512,10 @@ def forward_tab() -> rx.Component:
             rx.recharts.line_chart(
                 rx.recharts.line(data_key="forward", stroke="#3182ce",
                                  stroke_width=2, dot=True, name="Forward Price"),
-                rx.recharts.x_axis(data_key="maturity",
+                rx.recharts.x_axis(data_key="maturity", stroke="#bbb", tick_line=False,
                                    label={"value": "Maturity (y)", "position": "insideBottom", "offset": -4}),
-                rx.recharts.y_axis(),
-                rx.recharts.cartesian_grid(stroke_dasharray="3 3", opacity=0.4),
+                rx.recharts.y_axis(stroke="#bbb", tick_line=False),
+                rx.recharts.cartesian_grid(stroke="#e5e5e5", horizontal=True, vertical=False),
                 rx.recharts.graphing_tooltip(),
                 data=State.forward_ladder_data,
                 width=480,
@@ -1523,9 +1527,9 @@ def forward_tab() -> rx.Component:
         rx.heading("Basis % by Maturity", size="3", margin_top="1em"),
         rx.recharts.bar_chart(
             rx.recharts.bar(data_key="basis_pct", fill="#805ad5", name="Basis %"),
-            rx.recharts.x_axis(data_key="maturity"),
-            rx.recharts.y_axis(),
-            rx.recharts.cartesian_grid(stroke_dasharray="3 3", opacity=0.4),
+            rx.recharts.x_axis(data_key="maturity", stroke="#bbb", tick_line=False),
+            rx.recharts.y_axis(stroke="#bbb", tick_line=False),
+            rx.recharts.cartesian_grid(stroke="#e5e5e5", horizontal=True, vertical=False),
             rx.recharts.reference_line(y=0, stroke="#aaa"),
             rx.recharts.graphing_tooltip(),
             data=State.forward_ladder_data,
