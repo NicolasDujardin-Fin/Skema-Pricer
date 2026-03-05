@@ -7,6 +7,7 @@ pricer_app.py — Reflex GUI for the Skema Options Pricer.
 """
 
 import datetime
+import math
 import os
 import sys
 
@@ -50,6 +51,13 @@ class State(rx.State):
     n_lots: float = 1.0
     multiplier: float = 100.0
     option_type: str = "call"
+    selected_chart: str = "Price"
+    spot_move_pct: float = 1.0
+    iv_for_move: float = 20.0
+    tick_size: float = 0.01
+    qa_gamma: float = 20000000.0
+    qa_gamma_str: str = "20,000,000"
+    qa_vol: float = 22.0
 
     # ------------------------------------------------------------------
     # Ladder range controls
@@ -229,6 +237,35 @@ class State(rx.State):
             return "—"
 
     @rx.var(cache=True)
+    def rho_display(self) -> str:
+        """Rho per 1% rate (unit, not cash)."""
+        try:
+            dr = 0.001
+            p_up = bs_price(self.S, self.K, self.T, self.r + dr,
+                            self.q, self.repo, self.sigma, self.option_type)
+            p_dn = bs_price(self.S, self.K, self.T, self.r - dr,
+                            self.q, self.repo, self.sigma, self.option_type)
+            rho = (p_up - p_dn) / (2 * dr) / 100
+            return f"{rho:.6f}"
+        except Exception:
+            return "—"
+
+    @rx.var(cache=True)
+    def cash_rho_display(self) -> str:
+        """Cash rho per 1% rate = (dPrice/dr) * n_lots * multiplier / 100."""
+        try:
+            dr = 0.001
+            p_up = bs_price(self.S, self.K, self.T, self.r + dr,
+                            self.q, self.repo, self.sigma, self.option_type)
+            p_dn = bs_price(self.S, self.K, self.T, self.r - dr,
+                            self.q, self.repo, self.sigma, self.option_type)
+            rho = (p_up - p_dn) / (2 * dr)
+            cr = rho * self.n_lots * self.multiplier / 100
+            return f"{cr:,.2f}"
+        except Exception:
+            return "—"
+
+    @rx.var(cache=True)
     def delta_tx_display(self) -> str:
         """Change in share hedge per day = cash_charm / S = charm * n_lots * multiplier."""
         try:
@@ -240,6 +277,127 @@ class State(rx.State):
                               self.q, self.repo, self.sigma, self.option_type)["delta"]
             delta_tx = (d_tm1 - d_now) * self.n_lots * self.multiplier
             return f"{delta_tx:,.2f} shares/day"
+        except Exception:
+            return "—"
+
+    @rx.var(cache=True)
+    def new_cash_delta_display(self) -> str:
+        """New cash delta after spot move = cash_gamma * move_pct."""
+        try:
+            g = bs_greeks(self.S, self.K, self.T, self.r,
+                          self.q, self.repo, self.sigma, self.option_type)
+            cash_gamma = self.n_lots * g["gamma"] * self.multiplier * self.S ** 2 / 100
+            new_cd = cash_gamma * self.spot_move_pct
+            return f"{new_cd:,.0f}"
+        except Exception:
+            return "—"
+
+    @rx.var(cache=True)
+    def gamma_pnl_display(self) -> str:
+        """Gamma PnL = 1/2 × new_cash_delta × move%.
+        Triangle: base = move%, height = new_cash_delta."""
+        try:
+            g = bs_greeks(self.S, self.K, self.T, self.r,
+                          self.q, self.repo, self.sigma, self.option_type)
+            cash_gamma = self.n_lots * g["gamma"] * self.multiplier * self.S ** 2 / 100
+            new_cd = cash_gamma * self.spot_move_pct
+            pnl = 0.5 * new_cd * (self.spot_move_pct / 100)
+            return f"{pnl:,.2f}"
+        except Exception:
+            return "—"
+
+    @rx.var(cache=True)
+    def daily_move_display(self) -> str:
+        """Daily spot move proxy = IV / sqrt(252), in %."""
+        try:
+            dm = self.iv_for_move / math.sqrt(252)
+            return f"{dm:.2f}%"
+        except Exception:
+            return "—"
+
+    @rx.var(cache=True)
+    def breakeven_spot_display(self) -> str:
+        """Breakeven spot at expiry: call → K + premium, put → K - premium."""
+        try:
+            p = bs_price(self.S, self.K, self.T, self.r,
+                         self.q, self.repo, self.sigma, self.option_type)
+            if self.option_type == "call":
+                be = self.K + p
+            else:
+                be = self.K - p
+            pct = (be / self.S - 1) * 100
+            return f"{be:.2f}  ({pct:+.2f}%)"
+        except Exception:
+            return "—"
+
+    @rx.var(cache=True)
+    def breakeven_vol_display(self) -> str:
+        """Breakeven realized vol + daily spot range.
+        daily_be_move = sqrt(2 * |theta| / gamma), annualize × sqrt(252).
+        Then show the spot range [S - move, S + move]."""
+        try:
+            g = bs_greeks(self.S, self.K, self.T, self.r,
+                          self.q, self.repo, self.sigma, self.option_type)
+            gamma = g["gamma"]
+            theta = g["theta"]
+            if gamma <= 0:
+                return "—"
+            daily_move = math.sqrt(2 * abs(theta) / gamma)
+            be_vol = (daily_move / self.S) * math.sqrt(252) * 100
+            s_lo = self.S - daily_move
+            s_hi = self.S + daily_move
+            ticks = daily_move / self.tick_size if self.tick_size > 0 else 0
+            return f"{be_vol:.2f}%  →  [{s_lo:.2f} , {s_hi:.2f}]  ({ticks:.0f} ticks)"
+        except Exception:
+            return "—"
+
+    @rx.var(cache=True)
+    def gamma_theta_ratio_display(self) -> str:
+        """Gamma/Theta ratio = cash_gamma / |cash_theta|."""
+        try:
+            g = bs_greeks(self.S, self.K, self.T, self.r,
+                          self.q, self.repo, self.sigma, self.option_type)
+            cash_gamma = self.n_lots * g["gamma"] * self.multiplier * self.S ** 2 / 100
+            cash_theta = self.n_lots * g["theta"] * self.multiplier
+            if abs(cash_theta) < 1e-10:
+                return "—"
+            ratio = cash_gamma / abs(cash_theta)
+            return f"{ratio:.2f}"
+        except Exception:
+            return "—"
+
+    @rx.var(cache=True)
+    def theta_earn_move_display(self) -> str:
+        """Spot move (%) needed for gamma PnL to cover theta.
+        solve: 1/2 * cash_gamma * m^2 / 100 = |cash_theta|
+        → m = sqrt(200 * |cash_theta| / cash_gamma)."""
+        try:
+            g = bs_greeks(self.S, self.K, self.T, self.r,
+                          self.q, self.repo, self.sigma, self.option_type)
+            cash_gamma = self.n_lots * g["gamma"] * self.multiplier * self.S ** 2 / 100
+            cash_theta = self.n_lots * g["theta"] * self.multiplier
+            if cash_gamma <= 0:
+                return "—"
+            m = math.sqrt(200 * abs(cash_theta) / cash_gamma)
+            return f"{m:.2f}%"
+        except Exception:
+            return "—"
+
+    @rx.var(cache=True)
+    def qa_theta_bill_display(self) -> str:
+        """Quick calc: Theta/day = Cash_Gamma(M) × σ² / 50,400 × 1,000,000."""
+        try:
+            theta = self.qa_gamma * self.qa_vol ** 2 / 50_400
+            return f"${theta:,.0f} /day"
+        except Exception:
+            return "—"
+
+    @rx.var(cache=True)
+    def qa_daily_move_display(self) -> str:
+        """Daily move at the given vol = vol / sqrt(252)."""
+        try:
+            dm = self.qa_vol / math.sqrt(252)
+            return f"{dm:.2f}%"
         except Exception:
             return "—"
 
@@ -269,6 +427,12 @@ class State(rx.State):
                 d_dn = bs_greeks(S, self.K, self.T, self.r, self.q, self.repo,
                                  max(0.001, self.sigma - ds), "call")["delta"]
                 cash_vanna = (d_up - d_dn) / (2 * ds) * self.n_lots * self.multiplier * S / 100
+                dr = 0.001
+                p_up = bs_price(S, self.K, self.T, self.r + dr,
+                                self.q, self.repo, self.sigma, "call")
+                p_dn = bs_price(S, self.K, self.T, self.r - dr,
+                                self.q, self.repo, self.sigma, "call")
+                cash_rho = (p_up - p_dn) / (2 * dr) * self.n_lots * self.multiplier / 100
                 r2 = {k: round(float(v), 4) if isinstance(v, float) else v
                       for k, v in row.items()}
                 r2["cash_gamma"] = round(float(cash_gamma), 4)
@@ -276,6 +440,7 @@ class State(rx.State):
                 r2["cash_vega"]  = round(float(cash_vega),  4)
                 r2["cash_charm"] = round(float(cash_charm), 4)
                 r2["cash_vanna"] = round(float(cash_vanna), 4)
+                r2["cash_rho"]   = round(float(cash_rho), 4)
                 result.append(r2)
             return result
         except Exception:
@@ -428,6 +593,33 @@ class State(rx.State):
     def set_fwd_maturities_str(self, v: str):
         self.fwd_maturities_str = v
 
+    def set_selected_chart(self, v: str):
+        self.selected_chart = v
+
+    def set_spot_move_pct(self, v: str):
+        try: self.spot_move_pct = float(v)
+        except ValueError: pass
+
+    def set_iv_for_move(self, v: str):
+        try: self.iv_for_move = float(v)
+        except ValueError: pass
+
+    def set_tick_size(self, v: str):
+        try: self.tick_size = max(0.0001, float(v))
+        except ValueError: pass
+
+    def set_qa_gamma(self, v: str):
+        try:
+            cleaned = v.replace(",", "").replace(" ", "")
+            self.qa_gamma = float(cleaned)
+            self.qa_gamma_str = f"{self.qa_gamma:,.0f}"
+        except ValueError:
+            self.qa_gamma_str = v
+
+    def set_qa_vol(self, v: str):
+        try: self.qa_vol = float(v)
+        except ValueError: pass
+
 
 # ---------------------------------------------------------------------------
 # UI helpers
@@ -435,16 +627,24 @@ class State(rx.State):
 
 LABEL_W = "90px"
 INPUT_W = "110px"
+
+# Excel-like palette — all explicit, immune to OS dark mode
+_BG     = "white"
+_CARD   = "#f5f5f5"
+_BORDER = "#d4d4d4"
+_TEXT   = "#1a1a1a"
+_MUTED  = "#666666"
+
 CARD_STYLE = {
-    "background": "var(--gray-2)",
-    "border_radius": "8px",
-    "border": "1px solid var(--gray-5)",
+    "background": _CARD,
+    "border_radius": "4px",
+    "border": f"1px solid {_BORDER}",
 }
 
 
 def param_row(label: str, value, on_change, step: str = "0.01") -> rx.Component:
     return rx.hstack(
-        rx.text(label, width=LABEL_W, font_size="2", color="var(--gray-11)"),
+        rx.text(label, width=LABEL_W, font_size="2", color=_TEXT),
         rx.input(
             value=value,
             on_change=on_change,
@@ -460,8 +660,8 @@ def param_row(label: str, value, on_change, step: str = "0.01") -> rx.Component:
 
 def metric_card(label: str, value) -> rx.Component:
     return rx.box(
-        rx.text(label, font_size="1", color="var(--gray-10)", margin_bottom="4px"),
-        rx.text(value, font_size="5", font_weight="600"),
+        rx.text(label, font_size="1", color=_MUTED, margin_bottom="4px"),
+        rx.text(value, font_size="5", font_weight="600", color=_TEXT),
         **CARD_STYLE,
         padding="1em",
         min_width="140px",
@@ -475,11 +675,11 @@ def metric_card(label: str, value) -> rx.Component:
 
 def inputs_panel() -> rx.Component:
     return rx.vstack(
-        rx.heading("Parameters", size="4", margin_bottom="0.5em"),
+        rx.heading("Parameters", size="4", margin_bottom="0.5em", color=_TEXT),
         param_row("S (spot)",   State.S,          State.set_S,     "1"),
         param_row("K (strike)", State.K,          State.set_K,     "1"),
         rx.hstack(
-            rx.text("Maturity", width=LABEL_W, font_size="2", color="var(--gray-11)"),
+            rx.text("Maturity", width=LABEL_W, font_size="2", color=_TEXT),
             rx.vstack(
                 rx.input(
                     value=State.maturity_date,
@@ -488,7 +688,7 @@ def inputs_panel() -> rx.Component:
                     width=INPUT_W,
                     size="2",
                 ),
-                rx.text(State.T_years_str, font_size="1", color="var(--gray-10)"),
+                rx.text(State.T_years_str, font_size="1", color=_MUTED),
                 spacing="0",
             ),
             align="center",
@@ -500,8 +700,9 @@ def inputs_panel() -> rx.Component:
         param_row("σ (%)",      State.sigma_pct,  State.set_sigma, "0.5"),
         param_row("Lots",       State.n_lots,     State.set_n_lots),
         param_row("Multiplier", State.multiplier, State.set_multiplier, "1"),
+        param_row("Tick size",  State.tick_size,  State.set_tick_size, "0.01"),
         rx.hstack(
-            rx.text("Type", width=LABEL_W, font_size="2", color="var(--gray-11)"),
+            rx.text("Type", width=LABEL_W, font_size="2", color=_TEXT),
             rx.select(
                 ["call", "put"],
                 value=State.option_type,
@@ -519,39 +720,45 @@ def inputs_panel() -> rx.Component:
     )
 
 
+_TH = {"padding": "6px 16px", "text_align": "left", "font_weight": "600",
+       "color": _TEXT, "background": "#e8e8e8", "border_bottom": f"1px solid {_BORDER}"}
+_TD = {"padding": "4px 16px", "color": _TEXT, "border_bottom": f"1px solid {_BORDER}"}
+
+
 def greeks_table() -> rx.Component:
     rows = [
         ("Delta",          State.delta_display),
         ("Gamma",          State.gamma_display),
         ("Vega (per 1%)",  State.vega_display),
         ("Theta (per day)",State.theta_display),
+        ("Rho (per 1%)",   State.rho_display),
     ]
-    return rx.table.root(
-        rx.table.header(
-            rx.table.row(
-                rx.table.column_header_cell("Greek"),
-                rx.table.column_header_cell("Value"),
-            )
+    return rx.el.table(
+        rx.el.thead(
+            rx.el.tr(
+                rx.el.th("Greek", style=_TH),
+                rx.el.th("Value", style={**_TH, "text_align": "right"}),
+            ),
         ),
-        rx.table.body(
+        rx.el.tbody(
             *[
-                rx.table.row(
-                    rx.table.cell(label),
-                    rx.table.cell(val),
+                rx.el.tr(
+                    rx.el.td(label, style=_TD),
+                    rx.el.td(val,   style={**_TD, "text_align": "right"}),
                 )
                 for label, val in rows
             ]
         ),
-        size="2",
-        variant="surface",
-        width="100%",
+        style={"width": "360px", "border_collapse": "collapse",
+               "background": _CARD, "border": f"1px solid {_BORDER}",
+               "border_radius": "4px", "font_size": "14px"},
     )
 
 
-def _chart(title: str, lines: list, data_key_x: str, data, h: int = 240) -> rx.Component:
+def _chart(title: str, lines: list, data_key_x: str, data, h: int = 240, w: int = 700) -> rx.Component:
     """Helper: titled line chart."""
     return rx.vstack(
-        rx.text(title, font_size="2", font_weight="600", color="var(--gray-11)"),
+        rx.text(title, font_size="2", font_weight="600", color=_TEXT),
         rx.recharts.line_chart(
             *lines,
             rx.recharts.x_axis(data_key=data_key_x),
@@ -560,7 +767,7 @@ def _chart(title: str, lines: list, data_key_x: str, data, h: int = 240) -> rx.C
             rx.recharts.legend(vertical_align="top"),
             rx.recharts.graphing_tooltip(),
             data=data,
-            width=420,
+            width=w,
             height=h,
         ),
         spacing="1",
@@ -571,7 +778,7 @@ def pricer_tab() -> rx.Component:
     return rx.hstack(
         # Left: inputs
         inputs_panel(),
-        # Right: metrics + greeks + 3 charts
+        # Right: metrics + greeks + charts
         rx.vstack(
             # Hero metrics row
             rx.hstack(
@@ -583,92 +790,194 @@ def pricer_tab() -> rx.Component:
                 metric_card("Cash Vega/1%",  State.cash_vega_display),
                 metric_card("Cash Charm/day",State.cash_charm_display),
                 metric_card("Cash Vanna/1%", State.cash_vanna_display),
+                metric_card("Cash Rho/1%",  State.cash_rho_display),
                 spacing="3",
                 flex_wrap="wrap",
             ),
             rx.text(
                 "Delta hedge: ", State.n_stocks_display,
-                font_size="2", color="var(--gray-10)", margin_top="0.25em",
+                font_size="2", color=_MUTED, margin_top="0.25em",
             ),
             rx.text(
                 "Delta t+1d: ", State.delta_tx_display,
-                font_size="2", color="var(--gray-10)",
+                font_size="2", color=_MUTED,
             ),
-            # Greeks table
-            greeks_table(),
-            # Charts row — Price / Cash Delta / Cash Gamma all vs Spot
+            # Gamma PnL calculator
             rx.hstack(
-                _chart(
-                    "Price vs Spot",
-                    [
-                        rx.recharts.line(data_key="call_price", stroke="#3182ce",
-                                         stroke_width=2, dot=False, name="Call"),
-                        rx.recharts.line(data_key="put_price",  stroke="#e53e3e",
-                                         stroke_width=2, dot=False, name="Put"),
-                    ],
-                    "spot",
-                    State.spot_ladder_data,
+                rx.text("Gamma PnL", font_size="2", font_weight="600", color=_TEXT),
+                rx.text("  move:", font_size="2", color=_MUTED),
+                rx.input(
+                    value=State.spot_move_pct,
+                    on_change=State.set_spot_move_pct,
+                    type="number",
+                    step="0.5",
+                    width="70px",
+                    size="1",
                 ),
-                _chart(
-                    "Cash Delta vs Spot",
-                    [
-                        rx.recharts.line(data_key="call_cash_delta", stroke="#38a169",
-                                         stroke_width=2, dot=False, name="Call Cash$"),
-                        rx.recharts.line(data_key="put_cash_delta",  stroke="#dd6b20",
-                                         stroke_width=2, dot=False, name="Put Cash$"),
-                    ],
-                    "spot",
-                    State.spot_ladder_data,
+                rx.text("%", font_size="2", color=_MUTED),
+                rx.text(" → new Δ cash: ", font_size="2", color=_MUTED),
+                rx.text(State.new_cash_delta_display, font_size="2", font_weight="600", color=_TEXT),
+                rx.text(" → PnL = ½ × ΔCash × move% = ", font_size="2", color=_MUTED),
+                rx.text(State.gamma_pnl_display, font_size="2", font_weight="600", color="#2b6cb0"),
+                rx.text("  |  IV:", font_size="2", color=_MUTED),
+                rx.input(
+                    value=State.iv_for_move,
+                    on_change=State.set_iv_for_move,
+                    type="number",
+                    step="1",
+                    width="65px",
+                    size="1",
                 ),
-                _chart(
-                    "Cash Gamma / 1% vs Spot",
-                    [
-                        rx.recharts.line(data_key="cash_gamma", stroke="#805ad5",
-                                         stroke_width=2, dot=False, name="Cash Gamma"),
-                    ],
-                    "spot",
-                    State.spot_ladder_data,
+                rx.text("% → daily move ≈ ", font_size="2", color=_MUTED),
+                rx.text(State.daily_move_display, font_size="2", font_weight="600", color="#2b6cb0"),
+                align="center",
+                spacing="1",
+                padding="6px 12px",
+                **CARD_STYLE,
+            ),
+            # Trading shortcuts
+            rx.hstack(
+                rx.vstack(
+                    rx.text("BE Spot", font_size="1", color=_MUTED),
+                    rx.text(State.breakeven_spot_display, font_size="2", font_weight="600", color=_TEXT),
+                    spacing="0",
                 ),
-                _chart(
-                    "Cash Theta / day vs Spot",
-                    [
-                        rx.recharts.line(data_key="cash_theta", stroke="#c05621",
-                                         stroke_width=2, dot=False, name="Cash Theta"),
-                    ],
-                    "spot",
-                    State.spot_ladder_data,
+                rx.vstack(
+                    rx.text("BE Vol (realized)", font_size="1", color=_MUTED),
+                    rx.text(State.breakeven_vol_display, font_size="2", font_weight="600", color=_TEXT),
+                    spacing="0",
                 ),
-                _chart(
-                    "Cash Vega / 1% vs Spot",
-                    [
-                        rx.recharts.line(data_key="cash_vega", stroke="#2b6cb0",
-                                         stroke_width=2, dot=False, name="Cash Vega"),
-                    ],
-                    "spot",
-                    State.spot_ladder_data,
+                rx.vstack(
+                    rx.text("Gamma/Theta", font_size="1", color=_MUTED),
+                    rx.text(State.gamma_theta_ratio_display, font_size="2", font_weight="600", color=_TEXT),
+                    spacing="0",
                 ),
-                _chart(
-                    "Cash Charm / day vs Spot",
-                    [
-                        rx.recharts.line(data_key="cash_charm", stroke="#276749",
-                                         stroke_width=2, dot=False, name="Cash Charm"),
-                    ],
-                    "spot",
-                    State.spot_ladder_data,
+                rx.vstack(
+                    rx.text("Theta earn move", font_size="1", color=_MUTED),
+                    rx.text(State.theta_earn_move_display, font_size="2", font_weight="600", color=_TEXT),
+                    spacing="0",
                 ),
-                _chart(
-                    "Cash Vanna / 1% vs Spot",
-                    [
-                        rx.recharts.line(data_key="cash_vanna", stroke="#97266d",
-                                         stroke_width=2, dot=False, name="Cash Vanna"),
-                    ],
-                    "spot",
-                    State.spot_ladder_data,
+                spacing="6",
+                padding="6px 12px",
+                **CARD_STYLE,
+            ),
+            # Quick calc: gamma → theta bill
+            rx.hstack(
+                rx.text("Quick calc", font_size="2", font_weight="600", color=_TEXT),
+                rx.text("  Gamma $", font_size="2", color=_MUTED),
+                rx.input(
+                    value=State.qa_gamma_str,
+                    on_change=State.set_qa_gamma,
+                    width="130px",
+                    size="1",
                 ),
-                spacing="4",
-                flex_wrap="wrap",
+                rx.text("@", font_size="2", color=_MUTED),
+                rx.input(
+                    value=State.qa_vol,
+                    on_change=State.set_qa_vol,
+                    type="number",
+                    step="1",
+                    width="60px",
+                    size="1",
+                ),
+                rx.text("% vol", font_size="2", color=_MUTED),
+                rx.text("  →  θ/day = CG × σ² / 50,400 = ", font_size="2", color=_MUTED),
+                rx.text(State.qa_theta_bill_display, font_size="2", font_weight="600", color="#2b6cb0"),
+                rx.text("  (daily move = ", font_size="2", color=_MUTED),
+                rx.text(State.qa_daily_move_display, font_size="2", font_weight="600", color=_TEXT),
+                rx.text(")", font_size="2", color=_MUTED),
+                align="center",
+                spacing="1",
+                padding="6px 12px",
+                **CARD_STYLE,
+            ),
+            # Greeks table + Chart side by side
+            rx.hstack(
+                greeks_table(),
+                # Chart selector + single large chart
+                rx.box(
+                    rx.hstack(
+                        rx.text("Chart:", font_size="2", font_weight="600", color=_TEXT),
+                        rx.select(
+                            ["Price", "Cash Delta", "Cash Gamma", "Cash Theta",
+                             "Cash Vega", "Cash Charm", "Cash Vanna", "Cash Rho"],
+                            value=State.selected_chart,
+                            on_change=State.set_selected_chart,
+                            size="2",
+                            width="180px",
+                        ),
+                        align="center",
+                        spacing="2",
+                        margin_bottom="0.5em",
+                    ),
+                    rx.match(
+                        State.selected_chart,
+                        ("Cash Delta", _chart(
+                            "Cash Delta vs Spot",
+                            [
+                                rx.recharts.line(data_key="call_cash_delta", stroke="#38a169",
+                                                 stroke_width=2, dot=False, name="Call Cash$"),
+                                rx.recharts.line(data_key="put_cash_delta", stroke="#dd6b20",
+                                                 stroke_width=2, dot=False, name="Put Cash$"),
+                            ],
+                            "spot", State.spot_ladder_data, h=360,
+                        )),
+                        ("Cash Gamma", _chart(
+                            "Cash Gamma / 1% vs Spot",
+                            [rx.recharts.line(data_key="cash_gamma", stroke="#805ad5",
+                                              stroke_width=2, dot=False, name="Cash Gamma")],
+                            "spot", State.spot_ladder_data, h=360,
+                        )),
+                        ("Cash Theta", _chart(
+                            "Cash Theta / day vs Spot",
+                            [rx.recharts.line(data_key="cash_theta", stroke="#c05621",
+                                              stroke_width=2, dot=False, name="Cash Theta")],
+                            "spot", State.spot_ladder_data, h=360,
+                        )),
+                        ("Cash Vega", _chart(
+                            "Cash Vega / 1% vs Spot",
+                            [rx.recharts.line(data_key="cash_vega", stroke="#2b6cb0",
+                                              stroke_width=2, dot=False, name="Cash Vega")],
+                            "spot", State.spot_ladder_data, h=360,
+                        )),
+                        ("Cash Charm", _chart(
+                            "Cash Charm / day vs Spot",
+                            [rx.recharts.line(data_key="cash_charm", stroke="#276749",
+                                              stroke_width=2, dot=False, name="Cash Charm")],
+                            "spot", State.spot_ladder_data, h=360,
+                        )),
+                        ("Cash Vanna", _chart(
+                            "Cash Vanna / 1% vs Spot",
+                            [rx.recharts.line(data_key="cash_vanna", stroke="#97266d",
+                                              stroke_width=2, dot=False, name="Cash Vanna")],
+                            "spot", State.spot_ladder_data, h=360,
+                        )),
+                        ("Cash Rho", _chart(
+                            "Cash Rho / 1% vs Spot",
+                            [rx.recharts.line(data_key="cash_rho", stroke="#b83280",
+                                              stroke_width=2, dot=False, name="Cash Rho")],
+                            "spot", State.spot_ladder_data, h=360,
+                        )),
+                        # Default: Price
+                        _chart(
+                            "Price vs Spot",
+                            [
+                                rx.recharts.line(data_key="call_price", stroke="#3182ce",
+                                                 stroke_width=2, dot=False, name="Call"),
+                                rx.recharts.line(data_key="put_price", stroke="#e53e3e",
+                                                 stroke_width=2, dot=False, name="Put"),
+                            ],
+                            "spot", State.spot_ladder_data, h=360,
+                        ),
+                    ),
+                    background=_BG,
+                    border=f"1px solid {_BORDER}",
+                    border_radius="4px",
+                    padding="1em",
+                ),
                 align="start",
-                margin_top="1em",
+                spacing="4",
+                margin_top="-0.5em",
             ),
             spacing="4",
             flex="1",
@@ -688,27 +997,27 @@ def pricer_tab() -> rx.Component:
 def range_controls() -> rx.Component:
     return rx.hstack(
         rx.box(
-            rx.text("Spot range ±", font_size="2", color="var(--gray-10)"),
+            rx.text("Spot range ±", font_size="2", color=_MUTED),
             rx.input(value=State.spot_range_pct, on_change=State.set_spot_range_pct,
                      type="number", step="0.05", width="80px", size="1"),
         ),
         rx.box(
-            rx.text("n spots", font_size="2", color="var(--gray-10)"),
+            rx.text("n spots", font_size="2", color=_MUTED),
             rx.input(value=State.n_spots, on_change=State.set_n_spots,
                      type="number", step="2", width="70px", size="1"),
         ),
         rx.box(
-            rx.text("Vol min", font_size="2", color="var(--gray-10)"),
+            rx.text("Vol min", font_size="2", color=_MUTED),
             rx.input(value=State.vol_min, on_change=State.set_vol_min,
                      type="number", step="0.01", width="80px", size="1"),
         ),
         rx.box(
-            rx.text("Vol max", font_size="2", color="var(--gray-10)"),
+            rx.text("Vol max", font_size="2", color=_MUTED),
             rx.input(value=State.vol_max, on_change=State.set_vol_max,
                      type="number", step="0.05", width="80px", size="1"),
         ),
         rx.box(
-            rx.text("n vols", font_size="2", color="var(--gray-10)"),
+            rx.text("n vols", font_size="2", color=_MUTED),
             rx.input(value=State.n_vols, on_change=State.set_n_vols,
                      type="number", step="2", width="70px", size="1"),
         ),
@@ -906,7 +1215,7 @@ def gamma_tab() -> rx.Component:
                 rx.text(
                     "OTM = S×0.8 | ATM = S | ITM = S×1.2  (clés fixes)",
                     font_size="1",
-                    color="var(--gray-10)",
+                    color=_MUTED,
                 ),
                 rx.recharts.line_chart(
                     rx.recharts.line(data_key="gamma_otm", stroke="#e53e3e",
@@ -1024,7 +1333,7 @@ def forward_tab() -> rx.Component:
 def index() -> rx.Component:
     return rx.box(
         rx.hstack(
-            rx.heading("Skema Options Pricer", size="6"),
+            rx.heading("Skema Options Pricer", size="6", color=_TEXT),
             rx.badge("BS with repo", color_scheme="blue", variant="soft"),
             align="center",
             spacing="3",
@@ -1032,8 +1341,8 @@ def index() -> rx.Component:
         ),
         rx.tabs.root(
             rx.tabs.list(
-                rx.tabs.trigger("Pricer",   value="pricer"),
-                rx.tabs.trigger("Forward",  value="forward"),
+                rx.tabs.trigger("Pricer",   value="pricer",  style={"color": _TEXT}),
+                rx.tabs.trigger("Forward",  value="forward", style={"color": _TEXT}),
             ),
             rx.tabs.content(pricer_tab(),   value="pricer"),
             rx.tabs.content(forward_tab(),  value="forward"),
@@ -1043,10 +1352,18 @@ def index() -> rx.Component:
         padding="2em",
         max_width="1440px",
         margin="0 auto",
+        background=_BG,
+        color=_TEXT,
+        min_height="100vh",
     )
 
 
 app = rx.App(
     theme=rx.theme(appearance="light", accent_color="blue"),
+    style={
+        "background_color": _BG,
+        "color": _TEXT,
+        "font_family": "Segoe UI, Calibri, Arial, sans-serif",
+    },
 )
 app.add_page(index, title="Skema Options Pricer")
