@@ -1008,13 +1008,11 @@ def pricer_tab() -> rx.Component:
                 spacing="3",
                 flex_wrap="wrap",
             ),
-            rx.text(
-                "Delta hedge: ", State.n_stocks_display,
-                font_size="2", color=_MUTED, margin_top="0.25em",
-            ),
-            rx.text(
-                "Delta t+1d: ", State.delta_tx_display,
-                font_size="2", color=_MUTED,
+            rx.hstack(
+                rx.text("Delta hedge: ", State.n_stocks_display, font_size="2", color=_MUTED),
+                rx.text("  |  Delta t+1d: ", State.delta_tx_display, font_size="2", color=_MUTED),
+                margin_top="0.25em",
+                spacing="1",
             ),
             # Gamma PnL calculator
             rx.hstack(
