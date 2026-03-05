@@ -52,6 +52,8 @@ class State(rx.State):
     multiplier: float = 100.0
     option_type: str = "call"
     selected_chart: str = "Price"
+    selected_chart2: str = "Price"
+    selected_axis2: str = "Vol"
     spot_move_pct: float = 1.0
     iv_for_move: float = 20.0
     tick_size: float = 0.01
@@ -402,6 +404,101 @@ class State(rx.State):
             return "—"
 
     @rx.var(cache=True)
+    def vol_greeks_data(self) -> list[dict[str, Any]]:
+        """All cash Greeks across a range of vols (for chart 2)."""
+        try:
+            n = 31
+            vols = [self.vol_min + i * (self.vol_max - self.vol_min) / (n - 1) for i in range(n)]
+            result = []
+            for sigma in vols:
+                sigma = max(0.001, sigma)
+                g = bs_greeks(self.S, self.K, self.T, self.r, self.q, self.repo, sigma, self.option_type)
+                p_call = bs_price(self.S, self.K, self.T, self.r, self.q, self.repo, sigma, "call")
+                p_put = bs_price(self.S, self.K, self.T, self.r, self.q, self.repo, sigma, "put")
+                cd = self.n_lots * g["delta"] * self.multiplier * self.S
+                cg = self.n_lots * g["gamma"] * self.multiplier * self.S ** 2 / 100
+                ct = self.n_lots * g["theta"] * self.multiplier
+                cv = self.n_lots * g["vega"] * self.multiplier
+                # charm (numerical)
+                dt = 1.0 / 365.0
+                T1 = max(0.001, self.T - dt)
+                d_now = g["delta"]
+                d_tm1 = bs_greeks(self.S, self.K, T1, self.r, self.q, self.repo, sigma, self.option_type)["delta"]
+                cc = (d_tm1 - d_now) * self.n_lots * self.multiplier * self.S
+                # vanna (numerical)
+                ds = 0.001
+                d_up = bs_greeks(self.S, self.K, self.T, self.r, self.q, self.repo, sigma + ds, self.option_type)["delta"]
+                d_dn = bs_greeks(self.S, self.K, self.T, self.r, self.q, self.repo, max(0.001, sigma - ds), self.option_type)["delta"]
+                cva = (d_up - d_dn) / (2 * ds) * self.n_lots * self.multiplier * self.S / 100
+                # rho (numerical)
+                dr = 0.001
+                p_up = bs_price(self.S, self.K, self.T, self.r + dr, self.q, self.repo, sigma, self.option_type)
+                p_dn = bs_price(self.S, self.K, self.T, self.r - dr, self.q, self.repo, sigma, self.option_type)
+                cr = (p_up - p_dn) / (2 * dr) * self.n_lots * self.multiplier / 100
+                result.append({
+                    "vol": round(float(sigma * 100), 2),
+                    "call_price": round(float(p_call), 4),
+                    "put_price": round(float(p_put), 4),
+                    "cash_delta": round(float(cd), 2),
+                    "cash_gamma": round(float(cg), 2),
+                    "cash_theta": round(float(ct), 2),
+                    "cash_vega": round(float(cv), 2),
+                    "cash_charm": round(float(cc), 2),
+                    "cash_vanna": round(float(cva), 2),
+                    "cash_rho": round(float(cr), 2),
+                })
+            return result
+        except Exception:
+            return []
+
+    @rx.var(cache=True)
+    def maturity_greeks_data(self) -> list[dict[str, Any]]:
+        """All cash Greeks across a range of maturities (for chart 2)."""
+        try:
+            mats = [i / 12.0 for i in range(1, 37)]  # 1 month to 3 years
+            result = []
+            for T in mats:
+                T = max(0.001, T)
+                g = bs_greeks(self.S, self.K, T, self.r, self.q, self.repo, self.sigma, self.option_type)
+                p_call = bs_price(self.S, self.K, T, self.r, self.q, self.repo, self.sigma, "call")
+                p_put = bs_price(self.S, self.K, T, self.r, self.q, self.repo, self.sigma, "put")
+                cd = self.n_lots * g["delta"] * self.multiplier * self.S
+                cg = self.n_lots * g["gamma"] * self.multiplier * self.S ** 2 / 100
+                ct = self.n_lots * g["theta"] * self.multiplier
+                cv = self.n_lots * g["vega"] * self.multiplier
+                # charm
+                dt = 1.0 / 365.0
+                T1 = max(0.001, T - dt)
+                d_now = g["delta"]
+                d_tm1 = bs_greeks(self.S, self.K, T1, self.r, self.q, self.repo, self.sigma, self.option_type)["delta"]
+                cc = (d_tm1 - d_now) * self.n_lots * self.multiplier * self.S
+                # vanna
+                ds = 0.001
+                d_up = bs_greeks(self.S, self.K, T, self.r, self.q, self.repo, self.sigma + ds, self.option_type)["delta"]
+                d_dn = bs_greeks(self.S, self.K, T, self.r, self.q, self.repo, max(0.001, self.sigma - ds), self.option_type)["delta"]
+                cva = (d_up - d_dn) / (2 * ds) * self.n_lots * self.multiplier * self.S / 100
+                # rho
+                dr = 0.001
+                p_up = bs_price(self.S, self.K, T, self.r + dr, self.q, self.repo, self.sigma, self.option_type)
+                p_dn = bs_price(self.S, self.K, T, self.r - dr, self.q, self.repo, self.sigma, self.option_type)
+                cr = (p_up - p_dn) / (2 * dr) * self.n_lots * self.multiplier / 100
+                result.append({
+                    "maturity": round(float(T), 2),
+                    "call_price": round(float(p_call), 4),
+                    "put_price": round(float(p_put), 4),
+                    "cash_delta": round(float(cd), 2),
+                    "cash_gamma": round(float(cg), 2),
+                    "cash_theta": round(float(ct), 2),
+                    "cash_vega": round(float(cv), 2),
+                    "cash_charm": round(float(cc), 2),
+                    "cash_vanna": round(float(cva), 2),
+                    "cash_rho": round(float(cr), 2),
+                })
+            return result
+        except Exception:
+            return []
+
+    @rx.var(cache=True)
     def spot_ladder_data(self) -> list[dict[str, Any]]:
         try:
             rows = cash_delta_spot_ladder(
@@ -596,6 +693,12 @@ class State(rx.State):
     def set_selected_chart(self, v: str):
         self.selected_chart = v
 
+    def set_selected_chart2(self, v: str):
+        self.selected_chart2 = v
+
+    def set_selected_axis2(self, v: str):
+        self.selected_axis2 = v
+
     def set_spot_move_pct(self, v: str):
         try: self.spot_move_pct = float(v)
         except ValueError: pass
@@ -774,6 +877,113 @@ def _chart(title: str, lines: list, data_key_x: str, data, h: int = 240, w: int 
     )
 
 
+def _chart2_vol(greek: str, data_key: str, color: str) -> rx.Component:
+    """Chart 2 variant: Greek vs Vol."""
+    return _chart(
+        f"{greek} vs Vol",
+        [rx.recharts.line(data_key=data_key, stroke=color, stroke_width=2, dot=False, name=greek)],
+        "vol", State.vol_greeks_data, h=360, w=500,
+    )
+
+
+def _chart2_mat(greek: str, data_key: str, color: str) -> rx.Component:
+    """Chart 2 variant: Greek vs Maturity."""
+    return _chart(
+        f"{greek} vs Maturity",
+        [rx.recharts.line(data_key=data_key, stroke=color, stroke_width=2, dot=False, name=greek)],
+        "maturity", State.maturity_greeks_data, h=360, w=500,
+    )
+
+
+_CHART2_MAP = {
+    "Price":      ("call_price",  "#3182ce"),
+    "Cash Delta": ("cash_delta",  "#38a169"),
+    "Cash Gamma": ("cash_gamma",  "#805ad5"),
+    "Cash Theta": ("cash_theta",  "#c05621"),
+    "Cash Vega":  ("cash_vega",   "#2b6cb0"),
+    "Cash Charm": ("cash_charm",  "#276749"),
+    "Cash Vanna": ("cash_vanna",  "#97266d"),
+    "Cash Rho":   ("cash_rho",    "#b83280"),
+}
+
+
+def chart2_box() -> rx.Component:
+    """Second chart: Greek vs Vol or Maturity."""
+    greeks = ["Price", "Cash Delta", "Cash Gamma", "Cash Theta",
+              "Cash Vega", "Cash Charm", "Cash Vanna", "Cash Rho"]
+
+    def _vol_match():
+        return rx.match(
+            State.selected_chart2,
+            *[
+                (name, _chart2_vol(name, dk, col))
+                for name, (dk, col) in _CHART2_MAP.items()
+                if name != "Price"
+            ],
+            # Default: Price (call + put)
+            _chart(
+                "Price vs Vol",
+                [
+                    rx.recharts.line(data_key="call_price", stroke="#3182ce", stroke_width=2, dot=False, name="Call"),
+                    rx.recharts.line(data_key="put_price", stroke="#e53e3e", stroke_width=2, dot=False, name="Put"),
+                ],
+                "vol", State.vol_greeks_data, h=360, w=500,
+            ),
+        )
+
+    def _mat_match():
+        return rx.match(
+            State.selected_chart2,
+            *[
+                (name, _chart2_mat(name, dk, col))
+                for name, (dk, col) in _CHART2_MAP.items()
+                if name != "Price"
+            ],
+            # Default: Price (call + put)
+            _chart(
+                "Price vs Maturity",
+                [
+                    rx.recharts.line(data_key="call_price", stroke="#3182ce", stroke_width=2, dot=False, name="Call"),
+                    rx.recharts.line(data_key="put_price", stroke="#e53e3e", stroke_width=2, dot=False, name="Put"),
+                ],
+                "maturity", State.maturity_greeks_data, h=360, w=500,
+            ),
+        )
+
+    return rx.box(
+        rx.hstack(
+            rx.text("Chart:", font_size="2", font_weight="600", color=_TEXT),
+            rx.select(
+                greeks,
+                value=State.selected_chart2,
+                on_change=State.set_selected_chart2,
+                size="2",
+                width="150px",
+            ),
+            rx.text("vs", font_size="2", color=_MUTED),
+            rx.select(
+                ["Vol", "Maturity"],
+                value=State.selected_axis2,
+                on_change=State.set_selected_axis2,
+                size="2",
+                width="120px",
+            ),
+            align="center",
+            spacing="2",
+            margin_bottom="0.5em",
+        ),
+        rx.match(
+            State.selected_axis2,
+            ("Maturity", _mat_match()),
+            _vol_match(),
+        ),
+        background=_BG,
+        border=f"1px solid {_BORDER}",
+        border_radius="4px",
+        padding="1em",
+    )
+
+
 def pricer_tab() -> rx.Component:
     return rx.hstack(
         # Left: inputs
@@ -891,20 +1101,20 @@ def pricer_tab() -> rx.Component:
                 padding="6px 12px",
                 **CARD_STYLE,
             ),
-            # Greeks table + Chart side by side
+            # Greeks table + 2 Charts side by side
             rx.hstack(
                 greeks_table(),
-                # Chart selector + single large chart
+                # Chart 1: Greek vs Spot
                 rx.box(
                     rx.hstack(
-                        rx.text("Chart:", font_size="2", font_weight="600", color=_TEXT),
+                        rx.text("vs Spot:", font_size="2", font_weight="600", color=_TEXT),
                         rx.select(
                             ["Price", "Cash Delta", "Cash Gamma", "Cash Theta",
                              "Cash Vega", "Cash Charm", "Cash Vanna", "Cash Rho"],
                             value=State.selected_chart,
                             on_change=State.set_selected_chart,
                             size="2",
-                            width="180px",
+                            width="150px",
                         ),
                         align="center",
                         spacing="2",
@@ -920,43 +1130,43 @@ def pricer_tab() -> rx.Component:
                                 rx.recharts.line(data_key="put_cash_delta", stroke="#dd6b20",
                                                  stroke_width=2, dot=False, name="Put Cash$"),
                             ],
-                            "spot", State.spot_ladder_data, h=360,
+                            "spot", State.spot_ladder_data, h=360, w=500,
                         )),
                         ("Cash Gamma", _chart(
                             "Cash Gamma / 1% vs Spot",
                             [rx.recharts.line(data_key="cash_gamma", stroke="#805ad5",
                                               stroke_width=2, dot=False, name="Cash Gamma")],
-                            "spot", State.spot_ladder_data, h=360,
+                            "spot", State.spot_ladder_data, h=360, w=500,
                         )),
                         ("Cash Theta", _chart(
                             "Cash Theta / day vs Spot",
                             [rx.recharts.line(data_key="cash_theta", stroke="#c05621",
                                               stroke_width=2, dot=False, name="Cash Theta")],
-                            "spot", State.spot_ladder_data, h=360,
+                            "spot", State.spot_ladder_data, h=360, w=500,
                         )),
                         ("Cash Vega", _chart(
                             "Cash Vega / 1% vs Spot",
                             [rx.recharts.line(data_key="cash_vega", stroke="#2b6cb0",
                                               stroke_width=2, dot=False, name="Cash Vega")],
-                            "spot", State.spot_ladder_data, h=360,
+                            "spot", State.spot_ladder_data, h=360, w=500,
                         )),
                         ("Cash Charm", _chart(
                             "Cash Charm / day vs Spot",
                             [rx.recharts.line(data_key="cash_charm", stroke="#276749",
                                               stroke_width=2, dot=False, name="Cash Charm")],
-                            "spot", State.spot_ladder_data, h=360,
+                            "spot", State.spot_ladder_data, h=360, w=500,
                         )),
                         ("Cash Vanna", _chart(
                             "Cash Vanna / 1% vs Spot",
                             [rx.recharts.line(data_key="cash_vanna", stroke="#97266d",
                                               stroke_width=2, dot=False, name="Cash Vanna")],
-                            "spot", State.spot_ladder_data, h=360,
+                            "spot", State.spot_ladder_data, h=360, w=500,
                         )),
                         ("Cash Rho", _chart(
                             "Cash Rho / 1% vs Spot",
                             [rx.recharts.line(data_key="cash_rho", stroke="#b83280",
                                               stroke_width=2, dot=False, name="Cash Rho")],
-                            "spot", State.spot_ladder_data, h=360,
+                            "spot", State.spot_ladder_data, h=360, w=500,
                         )),
                         # Default: Price
                         _chart(
@@ -967,7 +1177,7 @@ def pricer_tab() -> rx.Component:
                                 rx.recharts.line(data_key="put_price", stroke="#e53e3e",
                                                  stroke_width=2, dot=False, name="Put"),
                             ],
-                            "spot", State.spot_ladder_data, h=360,
+                            "spot", State.spot_ladder_data, h=360, w=500,
                         ),
                     ),
                     background=_BG,
@@ -975,6 +1185,8 @@ def pricer_tab() -> rx.Component:
                     border_radius="4px",
                     padding="1em",
                 ),
+                # Chart 2: Greek vs Vol or Maturity
+                chart2_box(),
                 align="start",
                 spacing="4",
                 margin_top="-0.5em",
@@ -1350,7 +1562,7 @@ def index() -> rx.Component:
             width="100%",
         ),
         padding="2em",
-        max_width="1440px",
+        max_width="1800px",
         margin="0 auto",
         background=_BG,
         color=_TEXT,
