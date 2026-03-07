@@ -29,6 +29,7 @@ from bs_engine import (
     gamma_spot_ladder,
     gamma_vol_ladder,
 )
+from bond_engine import bond_price_from_ytm, bond_price_yield_curve
 from numerical_engine import american_binomial_tree
 from rates_engine import forward_ladder, price_forward
 
@@ -62,6 +63,15 @@ class State(rx.State):
     qa_gamma_str: str = "20,000,000"
     qa_vol: float = 22.0
     bin_steps: int = 100
+
+    # ------------------------------------------------------------------
+    # Bond pricer inputs
+    # ------------------------------------------------------------------
+    bond_face: float = 1000.0
+    bond_coupon: float = 5.0
+    bond_maturity: float = 10.0
+    bond_ytm: float = 5.0
+    bond_freq: int = 2
 
     # ------------------------------------------------------------------
     # Ladder range controls
@@ -488,6 +498,78 @@ class State(rx.State):
         else:
             return "Call with dividend: the dividend lost by not holding the underlying exceeds the remaining time value of the option."
 
+    # ------------------------------------------------------------------
+    # Bond pricer computed vars
+    # ------------------------------------------------------------------
+
+    @rx.var(cache=True)
+    def bond_result(self) -> dict[str, Any]:
+        try:
+            return bond_price_from_ytm(
+                self.bond_face, self.bond_coupon, self.bond_maturity,
+                self.bond_ytm, self.bond_freq,
+            )
+        except Exception:
+            return {"price": 0.0, "macaulay_duration": 0.0,
+                    "modified_duration": 0.0, "convexity": 0.0, "cashflows": []}
+
+    @rx.var(cache=True)
+    def bond_price_display(self) -> str:
+        try:
+            return f"{self.bond_result['price']:.2f}"
+        except Exception:
+            return "—"
+
+    @rx.var(cache=True)
+    def bond_mac_dur_display(self) -> str:
+        try:
+            return f"{self.bond_result['macaulay_duration']:.4f} y"
+        except Exception:
+            return "—"
+
+    @rx.var(cache=True)
+    def bond_mod_dur_display(self) -> str:
+        try:
+            return f"{self.bond_result['modified_duration']:.4f} y"
+        except Exception:
+            return "—"
+
+    @rx.var(cache=True)
+    def bond_convexity_display(self) -> str:
+        try:
+            return f"{self.bond_result['convexity']:.4f}"
+        except Exception:
+            return "—"
+
+    @rx.var(cache=True)
+    def bond_pv_chart_data(self) -> list[dict[str, Any]]:
+        """PV waterfall: coupon PV and principal PV at each date."""
+        try:
+            cfs = self.bond_result["cashflows"]
+            result = []
+            for cf in cfs:
+                is_last = cf["type"] == "coupon+principal"
+                coupon_pv = cf["pv"] if not is_last else round(cf["pv"] - self.bond_face / (1 + self.bond_ytm / 100 / self.bond_freq) ** (cf["t"] * self.bond_freq), 2)
+                principal_pv = round(cf["pv"] - coupon_pv, 2) if is_last else 0.0
+                result.append({
+                    "t": cf["t"],
+                    "coupon_pv": round(coupon_pv, 2) if not is_last else round(coupon_pv, 2),
+                    "principal_pv": principal_pv,
+                })
+            return result
+        except Exception:
+            return []
+
+    @rx.var(cache=True)
+    def bond_yield_curve_data(self) -> list[dict[str, Any]]:
+        try:
+            return bond_price_yield_curve(
+                self.bond_face, self.bond_coupon, self.bond_maturity,
+                self.bond_freq,
+            )
+        except Exception:
+            return []
+
     @rx.var(cache=True)
     def vol_greeks_data(self) -> list[dict[str, Any]]:
         """All cash Greeks across a range of vols (for chart 2)."""
@@ -811,6 +893,26 @@ class State(rx.State):
     def set_bin_steps(self, v: list):
         try: self.bin_steps = max(10, min(500, int(v[0])))
         except (ValueError, IndexError, TypeError): pass
+
+    def set_bond_face(self, v: str):
+        try: self.bond_face = max(1, float(v))
+        except ValueError: pass
+
+    def set_bond_coupon(self, v: str):
+        try: self.bond_coupon = max(0, float(v))
+        except ValueError: pass
+
+    def set_bond_maturity(self, v: str):
+        try: self.bond_maturity = max(0.5, float(v))
+        except ValueError: pass
+
+    def set_bond_ytm(self, v: str):
+        try: self.bond_ytm = max(0.01, float(v))
+        except ValueError: pass
+
+    def set_bond_freq(self, v: str):
+        if v in ("1", "2", "4"):
+            self.bond_freq = int(v)
 
 
 # ---------------------------------------------------------------------------
@@ -1623,82 +1725,114 @@ def gamma_tab() -> rx.Component:
 
 
 # ---------------------------------------------------------------------------
-# Tab 4 — Forward
+# Tab 2 — Bond Pricer
 # ---------------------------------------------------------------------------
 
-def forward_table() -> rx.Component:
-    return rx.table.root(
-        rx.table.header(
-            rx.table.row(
-                rx.table.column_header_cell("Maturity (y)"),
-                rx.table.column_header_cell("Forward"),
-                rx.table.column_header_cell("Basis (F-S)"),
-                rx.table.column_header_cell("Basis %"),
-            )
+def bond_inputs_panel() -> rx.Component:
+    return rx.vstack(
+        rx.heading("Bond Parameters", size="4", margin_bottom="0.5em", color=_TEXT),
+        param_row("Face value", State.bond_face, State.set_bond_face, "100"),
+        param_row("Coupon (%)", State.bond_coupon, State.set_bond_coupon, "0.25"),
+        param_row("Maturity (y)", State.bond_maturity, State.set_bond_maturity, "1"),
+        param_row("YTM (%)", State.bond_ytm, State.set_bond_ytm, "0.25"),
+        rx.hstack(
+            rx.text("Frequency", width=LABEL_W, font_size="2", color=_TEXT),
+            rx.select(
+                ["1", "2", "4"],
+                value=State.bond_freq.to(str),
+                on_change=State.set_bond_freq,
+                size="2",
+                width=INPUT_W,
+            ),
+            align="center",
+            spacing="2",
         ),
-        rx.table.body(
-            rx.foreach(
-                State.forward_ladder_data,
-                lambda row: rx.table.row(
-                    rx.table.cell(row["maturity"]),
-                    rx.table.cell(row["forward"]),
-                    rx.table.cell(row["basis"]),
-                    rx.table.cell(row["basis_pct"]),
-                ),
-            )
-        ),
-        size="2",
-        variant="surface",
-        width="380px",
+        spacing="2",
+        padding="1em",
+        **CARD_STYLE,
+        width="260px",
     )
 
 
-def forward_tab() -> rx.Component:
-    return rx.vstack(
-        rx.hstack(
-            rx.text("Maturities (comma-separated years):", font_size="2"),
-            rx.input(
-                value=State.fwd_maturities_str,
-                on_change=State.set_fwd_maturities_str,
-                width="320px",
-                size="2",
+def bond_tab() -> rx.Component:
+    return rx.hstack(
+        # Left: inputs
+        bond_inputs_panel(),
+        # Right: metrics + charts
+        rx.vstack(
+            # Metrics row
+            rx.hstack(
+                metric_card("Bond Price", State.bond_price_display),
+                metric_card("Macaulay Duration", State.bond_mac_dur_display),
+                metric_card("Modified Duration", State.bond_mod_dur_display),
+                metric_card("Convexity", State.bond_convexity_display),
+                spacing="3",
+                flex_wrap="wrap",
             ),
-            align="center",
-            spacing="3",
-            margin_bottom="1em",
-        ),
-        rx.hstack(
-            forward_table(),
-            rx.recharts.line_chart(
-                rx.recharts.line(data_key="forward", stroke="#3182ce",
-                                 stroke_width=2, dot=True, name="Forward Price"),
-                rx.recharts.x_axis(data_key="maturity", stroke="#bbb", tick_line=False,
-                                   label={"value": "Maturity (y)", "position": "insideBottom", "offset": -4}),
-                rx.recharts.y_axis(stroke="#bbb", tick_line=False),
-                rx.recharts.cartesian_grid(stroke="#e5e5e5", horizontal=True, vertical=False),
-                rx.recharts.graphing_tooltip(),
-                data=State.forward_ladder_data,
-                width=480,
-                height=280,
+            # Two charts side by side
+            rx.hstack(
+                # Chart 1: Price-Yield relationship
+                rx.box(
+                    rx.vstack(
+                        rx.text("Bond Price vs Yield", font_size="2", font_weight="600", color=_TEXT),
+                        rx.recharts.line_chart(
+                            rx.recharts.line(data_key="price", stroke="#3182ce",
+                                             stroke_width=2, dot=False, name="Price"),
+                            rx.recharts.x_axis(data_key="ytm", stroke="#bbb", tick_line=False,
+                                               label={"value": "YTM (%)", "position": "insideBottom", "offset": -4}),
+                            rx.recharts.y_axis(stroke="#bbb", tick_line=False),
+                            rx.recharts.cartesian_grid(stroke="#e5e5e5", horizontal=True, vertical=False),
+                            rx.recharts.reference_line(y=State.bond_face, stroke="#999",
+                                                       stroke_dasharray="4 4", label="Par"),
+                            rx.recharts.graphing_tooltip(),
+                            data=State.bond_yield_curve_data,
+                            width=500,
+                            height=360,
+                        ),
+                        spacing="1",
+                    ),
+                    background=_BG,
+                    border=f"1px solid {_BORDER}",
+                    border_radius="4px",
+                    padding="1em",
+                ),
+                # Chart 2: PV waterfall (stacked bar)
+                rx.box(
+                    rx.vstack(
+                        rx.text("Present Value of Cash Flows", font_size="2", font_weight="600", color=_TEXT),
+                        rx.recharts.bar_chart(
+                            rx.recharts.bar(data_key="coupon_pv", fill="#3182ce",
+                                            stack_id="pv", name="Coupon PV"),
+                            rx.recharts.bar(data_key="principal_pv", fill="#e53e3e",
+                                            stack_id="pv", name="Principal PV"),
+                            rx.recharts.x_axis(data_key="t", stroke="#bbb", tick_line=False,
+                                               label={"value": "Maturity (y)", "position": "insideBottom", "offset": -4}),
+                            rx.recharts.y_axis(stroke="#bbb", tick_line=False),
+                            rx.recharts.cartesian_grid(stroke="#e5e5e5", horizontal=True, vertical=False),
+                            rx.recharts.legend(vertical_align="top"),
+                            rx.recharts.graphing_tooltip(),
+                            data=State.bond_pv_chart_data,
+                            width=500,
+                            height=360,
+                        ),
+                        spacing="1",
+                    ),
+                    background=_BG,
+                    border=f"1px solid {_BORDER}",
+                    border_radius="4px",
+                    padding="1em",
+                ),
+                align="start",
+                spacing="4",
             ),
             spacing="4",
-            align="start",
+            flex="1",
+            padding="1em",
         ),
-        rx.heading("Basis % by Maturity", size="3", margin_top="1em"),
-        rx.recharts.bar_chart(
-            rx.recharts.bar(data_key="basis_pct", fill="#805ad5", name="Basis %"),
-            rx.recharts.x_axis(data_key="maturity", stroke="#bbb", tick_line=False),
-            rx.recharts.y_axis(stroke="#bbb", tick_line=False),
-            rx.recharts.cartesian_grid(stroke="#e5e5e5", horizontal=True, vertical=False),
-            rx.recharts.reference_line(y=0, stroke="#aaa"),
-            rx.recharts.graphing_tooltip(),
-            data=State.forward_ladder_data,
-            width=620,
-            height=220,
-        ),
-        spacing="3",
-        padding="1em",
+        align="start",
+        spacing="4",
         width="100%",
+        padding="1em",
     )
 
 
@@ -1709,19 +1843,19 @@ def forward_tab() -> rx.Component:
 def index() -> rx.Component:
     return rx.box(
         rx.hstack(
-            rx.heading("Skema Options Pricer", size="6", color=_TEXT),
-            rx.badge("BS with repo", color_scheme="blue", variant="soft"),
+            rx.heading("Skema Pricer", size="6", color=_TEXT),
+            rx.badge("Options & Bonds", color_scheme="blue", variant="soft"),
             align="center",
             spacing="3",
             margin_bottom="1em",
         ),
         rx.tabs.root(
             rx.tabs.list(
-                rx.tabs.trigger("Pricer",   value="pricer",  style={"color": _TEXT}),
-                rx.tabs.trigger("Forward",  value="forward", style={"color": _TEXT}),
+                rx.tabs.trigger("Options",  value="pricer",  style={"color": _TEXT}),
+                rx.tabs.trigger("Bonds",    value="bonds",   style={"color": _TEXT}),
             ),
             rx.tabs.content(pricer_tab(),   value="pricer"),
-            rx.tabs.content(forward_tab(),  value="forward"),
+            rx.tabs.content(bond_tab(),     value="bonds"),
             default_value="pricer",
             width="100%",
         ),
