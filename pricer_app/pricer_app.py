@@ -554,6 +554,10 @@ class State(rx.State):
             return "—"
 
     @rx.var(cache=True)
+    def bond_freq_str(self) -> str:
+        return str(self.bond_freq)
+
+    @rx.var(cache=True)
     def bond_convexity_display(self) -> str:
         try:
             return f"{self.bond_result['convexity']:.4f}"
@@ -1758,7 +1762,7 @@ def bond_inputs_panel() -> rx.Component:
             rx.text("Frequency", width=LABEL_W, font_size="2", color=_TEXT),
             rx.select(
                 ["1", "2", "4"],
-                value=State.bond_freq.to(str),
+                value=State.bond_freq_str,
                 on_change=State.set_bond_freq,
                 size="2",
                 width=INPUT_W,
