@@ -484,9 +484,9 @@ class State(rx.State):
     def early_exercise_reason(self) -> str:
         ot = self.option_type.lower()
         if ot == "put":
-            return "Put deep ITM : la valeur temps restante est inferieure aux interets gagnes en exercant maintenant (K x r x dt > time value)."
+            return "Deep ITM put: remaining time value is less than interest earned by exercising now and collecting K (K x r x dt > time value)."
         else:
-            return "Call avec dividende : le dividende perdu en ne detenant pas le sous-jacent depasse la valeur temps restante de l'option."
+            return "Call with dividend: the dividend lost by not holding the underlying exceeds the remaining time value of the option."
 
     @rx.var(cache=True)
     def vol_greeks_data(self) -> list[dict[str, Any]]:
