@@ -72,6 +72,7 @@ class State(rx.State):
     bond_maturity: float = 10.0
     bond_ytm: float = 5.0
     bond_freq: int = 2
+    bond_settlement_days: float = 0.0
 
     # ------------------------------------------------------------------
     # Ladder range controls
@@ -509,8 +510,9 @@ class State(rx.State):
     @rx.var(cache=True)
     def bond_result(self) -> dict[str, Any]:
         try:
+            effective_mat = max(0.01, self.bond_maturity - self.bond_settlement_days / 365.0)
             return bond_price_from_ytm(
-                self.bond_face, self.bond_coupon, self.bond_maturity,
+                self.bond_face, self.bond_coupon, effective_mat,
                 self.bond_ytm, self.bond_freq,
             )
         except Exception:
@@ -586,8 +588,9 @@ class State(rx.State):
     @rx.var(cache=True)
     def bond_yield_curve_data(self) -> list[dict[str, Any]]:
         try:
+            effective_mat = max(0.01, self.bond_maturity - self.bond_settlement_days / 365.0)
             return bond_price_yield_curve(
-                self.bond_face, self.bond_coupon, self.bond_maturity,
+                self.bond_face, self.bond_coupon, effective_mat,
                 self.bond_freq,
             )
         except Exception:
@@ -936,6 +939,10 @@ class State(rx.State):
     def set_bond_freq(self, v: str):
         if v in ("1", "2", "4"):
             self.bond_freq = int(v)
+
+    def set_bond_settlement_days(self, v: str):
+        try: self.bond_settlement_days = max(0, float(v))
+        except ValueError: pass
 
 
 # ---------------------------------------------------------------------------
@@ -1758,6 +1765,7 @@ def bond_inputs_panel() -> rx.Component:
         param_row("Coupon (%)", State.bond_coupon, State.set_bond_coupon, "0.25"),
         param_row("Maturity (y)", State.bond_maturity, State.set_bond_maturity, "1"),
         param_row("YTM (%)", State.bond_ytm, State.set_bond_ytm, "0.25"),
+        param_row("Settl. days", State.bond_settlement_days, State.set_bond_settlement_days, "1"),
         rx.hstack(
             rx.text("Frequency", width=LABEL_W, font_size="2", color=_TEXT),
             rx.select(
