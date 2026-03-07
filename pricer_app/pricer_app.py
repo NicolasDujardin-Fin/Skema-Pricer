@@ -514,13 +514,28 @@ class State(rx.State):
                 self.bond_ytm, self.bond_freq,
             )
         except Exception:
-            return {"price": 0.0, "macaulay_duration": 0.0,
-                    "modified_duration": 0.0, "convexity": 0.0, "cashflows": []}
+            return {"dirty_price": 0.0, "clean_price": 0.0, "accrued_interest": 0.0,
+                    "macaulay_duration": 0.0, "modified_duration": 0.0,
+                    "convexity": 0.0, "cashflows": []}
 
     @rx.var(cache=True)
-    def bond_price_display(self) -> str:
+    def bond_dirty_price_display(self) -> str:
         try:
-            return f"{self.bond_result['price']:.2f}"
+            return f"{self.bond_result['dirty_price']:.2f}"
+        except Exception:
+            return "—"
+
+    @rx.var(cache=True)
+    def bond_clean_price_display(self) -> str:
+        try:
+            return f"{self.bond_result['clean_price']:.2f}"
+        except Exception:
+            return "—"
+
+    @rx.var(cache=True)
+    def bond_accrued_display(self) -> str:
+        try:
+            return f"{self.bond_result['accrued_interest']:.4f}"
         except Exception:
             return "—"
 
@@ -1766,7 +1781,9 @@ def bond_tab() -> rx.Component:
         rx.vstack(
             # Metrics row
             rx.hstack(
-                metric_card("Bond Price", State.bond_price_display),
+                metric_card("Dirty Price", State.bond_dirty_price_display),
+                metric_card("Clean Price", State.bond_clean_price_display),
+                metric_card("Accrued Interest", State.bond_accrued_display),
                 metric_card("Macaulay Duration", State.bond_mac_dur_display),
                 metric_card("Modified Duration", State.bond_mod_dur_display),
                 metric_card("Convexity", State.bond_convexity_display),

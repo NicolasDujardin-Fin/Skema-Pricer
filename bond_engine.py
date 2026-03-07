@@ -43,13 +43,19 @@ def bond_cashflows(
         - "type" : str   — "coupon" or "coupon+principal"
     """
     coupon = face * (coupon_rate / 100) / freq
-    n_periods = max(1, int(round(maturity * freq)))
     dt = 1.0 / freq
 
+    # Build coupon dates backwards from maturity to get the stub right
+    dates = []
+    t = maturity
+    while t > 1e-9:
+        dates.append(round(t, 6))
+        t -= dt
+    dates.sort()
+
     flows = []
-    for i in range(1, n_periods + 1):
-        t = round(i * dt, 6)
-        if i < n_periods:
+    for i, t in enumerate(dates):
+        if i < len(dates) - 1:
             flows.append({"t": t, "cf": coupon, "type": "coupon"})
         else:
             flows.append({"t": t, "cf": coupon + face, "type": "coupon+principal"})
@@ -117,8 +123,19 @@ def bond_price_from_ytm(
     mod_dur = mac_dur / (1 + y_per) if (1 + y_per) != 0 else 0.0
     convexity = convexity_sum / (price * (1 + y_per) ** 2) if price > 0 else 0.0
 
+    # Accrued interest: coupon × (elapsed fraction of current period)
+    # Time to next coupon = first cashflow time; period = 1/freq
+    period = 1.0 / freq
+    coupon_per_period = face * (coupon_rate / 100) / freq
+    time_to_next = flows[0]["t"] if flows else period
+    elapsed = period - time_to_next
+    accrued = coupon_per_period * (elapsed / period) if period > 0 else 0.0
+    clean = price - accrued
+
     return {
-        "price": round(price, 6),
+        "dirty_price": round(price, 6),
+        "clean_price": round(clean, 6),
+        "accrued_interest": round(accrued, 6),
         "macaulay_duration": round(mac_dur, 6),
         "modified_duration": round(mod_dur, 6),
         "convexity": round(convexity, 6),
@@ -162,6 +179,6 @@ def bond_price_yield_curve(
         res = bond_price_from_ytm(face, coupon_rate, maturity, float(y), freq)
         result.append({
             "ytm": round(float(y), 2),
-            "price": round(res["price"], 2),
+            "price": round(res["dirty_price"], 2),
         })
     return result
