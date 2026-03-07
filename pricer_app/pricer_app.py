@@ -29,6 +29,7 @@ from bs_engine import (
     gamma_spot_ladder,
     gamma_vol_ladder,
 )
+from numerical_engine import american_binomial_tree
 from rates_engine import forward_ladder, price_forward
 
 
@@ -60,6 +61,7 @@ class State(rx.State):
     qa_gamma: float = 20000000.0
     qa_gamma_str: str = "20,000,000"
     qa_vol: float = 22.0
+    bin_steps: int = 100
 
     # ------------------------------------------------------------------
     # Ladder range controls
@@ -74,6 +76,11 @@ class State(rx.State):
     # ------------------------------------------------------------------
     # Computed vars — derived automatically from base vars
     # ------------------------------------------------------------------
+
+    @rx.var(cache=True)
+    def K_ref(self) -> int:
+        """K as int for recharts reference_line (accepts str|int only)."""
+        return int(round(self.K))
 
     @rx.var(cache=True)
     def S_min(self) -> float:
@@ -407,6 +414,87 @@ class State(rx.State):
         except Exception:
             return "—"
 
+    # ------------------------------------------------------------------
+    # American pricing (binomial tree)
+    # ------------------------------------------------------------------
+
+    @rx.var(cache=True)
+    def american_price(self) -> float:
+        try:
+            b = self.r - self.q - self.repo
+            res = american_binomial_tree(
+                self.S, self.K, self.T, self.r, b, self.sigma,
+                self.bin_steps, self.option_type,
+            )
+            return round(res["price"], 6)
+        except Exception:
+            return 0.0
+
+    @rx.var(cache=True)
+    def american_delta(self) -> float:
+        try:
+            b = self.r - self.q - self.repo
+            res = american_binomial_tree(
+                self.S, self.K, self.T, self.r, b, self.sigma,
+                self.bin_steps, self.option_type,
+            )
+            return round(res["delta"], 6)
+        except Exception:
+            return 0.0
+
+    @rx.var(cache=True)
+    def american_price_display(self) -> str:
+        try:
+            return f"{self.american_price:.4f}"
+        except Exception:
+            return "—"
+
+    @rx.var(cache=True)
+    def american_delta_display(self) -> str:
+        try:
+            return f"{self.american_delta:.6f}"
+        except Exception:
+            return "—"
+
+    @rx.var(cache=True)
+    def exercise_premium_display(self) -> str:
+        try:
+            eu = bs_price(self.S, self.K, self.T, self.r,
+                          self.q, self.repo, self.sigma, self.option_type)
+            prem = self.american_price - eu
+            return f"{prem:.4f}"
+        except Exception:
+            return "—"
+
+    @rx.var(cache=True)
+    def exercise_premium_pct_display(self) -> str:
+        try:
+            eu = bs_price(self.S, self.K, self.T, self.r,
+                          self.q, self.repo, self.sigma, self.option_type)
+            if eu < 0.0001:
+                return "—"
+            prem = self.american_price - eu
+            return f"{prem / eu * 100:.2f}%"
+        except Exception:
+            return "—"
+
+    @rx.var(cache=True)
+    def exercise_premium_positive(self) -> bool:
+        try:
+            eu = bs_price(self.S, self.K, self.T, self.r,
+                          self.q, self.repo, self.sigma, self.option_type)
+            return (self.american_price - eu) > 0.001
+        except Exception:
+            return False
+
+    @rx.var(cache=True)
+    def early_exercise_reason(self) -> str:
+        ot = self.option_type.lower()
+        if ot == "put":
+            return "Put deep ITM : la valeur temps restante est inferieure aux interets gagnes en exercant maintenant (K × r × dt > time value)."
+        else:
+            return "Call avec dividende : le dividende perdu en ne detenant pas le sous-jacent depasse la valeur temps restante de l'option."
+
     @rx.var(cache=True)
     def vol_greeks_data(self) -> list[dict[str, Any]]:
         """All cash Greeks across a range of vols (for chart 2)."""
@@ -727,6 +815,10 @@ class State(rx.State):
         try: self.qa_vol = float(v)
         except ValueError: pass
 
+    def set_bin_steps(self, v: list):
+        try: self.bin_steps = max(10, min(500, int(v[0])))
+        except (ValueError, IndexError, TypeError): pass
+
 
 # ---------------------------------------------------------------------------
 # UI helpers
@@ -862,13 +954,22 @@ def greeks_table() -> rx.Component:
     )
 
 
-def _chart(title: str, lines: list, data_key_x: str, data, h: int = 240, w: int = 700) -> rx.Component:
-    """Helper: titled line chart."""
+def _chart(title: str, lines: list, data_key_x: str, data, h: int = 240, w: int = 700, ref_x=None) -> rx.Component:
+    """Helper: titled line chart. ref_x adds a dashed vertical reference line."""
+    extras = []
+    x_axis_props: dict = {"data_key": data_key_x, "stroke": "#bbb", "tick_line": False}
+    if ref_x is not None:
+        extras.append(rx.recharts.reference_line(
+            x=ref_x, stroke="#999", stroke_dasharray="4 4", label="ATM",
+        ))
+        x_axis_props["type_"] = "number"
+        x_axis_props["domain"] = ["dataMin", "dataMax"]
     return rx.vstack(
         rx.text(title, font_size="2", font_weight="600", color=_TEXT),
         rx.recharts.line_chart(
             *lines,
-            rx.recharts.x_axis(data_key=data_key_x, stroke="#bbb", tick_line=False),
+            *extras,
+            rx.recharts.x_axis(**x_axis_props),
             rx.recharts.y_axis(stroke="#bbb", tick_line=False),
             rx.recharts.cartesian_grid(stroke="#e5e5e5", horizontal=True, vertical=False),
             rx.recharts.legend(vertical_align="top"),
@@ -1103,6 +1204,74 @@ def pricer_tab() -> rx.Component:
                 padding="6px 12px",
                 **CARD_STYLE,
             ),
+            # American vs European comparison
+            rx.vstack(
+                rx.text("Analyse Exercice Anticipe (Style Americain)",
+                        font_size="2", font_weight="600", color=_TEXT),
+                rx.hstack(
+                    rx.vstack(
+                        rx.el.table(
+                            rx.el.tbody(
+                                rx.el.tr(
+                                    rx.el.td("Prix Europeen (BS)", style=_TD),
+                                    rx.el.td(State.bs_price_display, style={**_TD, "text_align": "right"}),
+                                ),
+                                rx.el.tr(
+                                    rx.el.td("Prix Americain (CRR)", style=_TD),
+                                    rx.el.td(State.american_price_display, style={**_TD, "text_align": "right", "font_weight": "600"}),
+                                ),
+                                rx.el.tr(
+                                    rx.el.td("Prime d'exercice anticipe", style=_TD),
+                                    rx.el.td(State.exercise_premium_display, style={**_TD, "text_align": "right", "color": "#2b6cb0"}),
+                                ),
+                                rx.el.tr(
+                                    rx.el.td("Prime (%)", style=_TD),
+                                    rx.el.td(State.exercise_premium_pct_display, style={**_TD, "text_align": "right", "color": "#2b6cb0"}),
+                                ),
+                                rx.el.tr(
+                                    rx.el.td("Delta Americain", style=_TD),
+                                    rx.el.td(State.american_delta_display, style={**_TD, "text_align": "right"}),
+                                ),
+                            ),
+                            style={"border_collapse": "collapse",
+                                   "background": _CARD, "border": f"1px solid {_BORDER}",
+                                   "border_radius": "4px", "font_size": "14px"},
+                        ),
+                        rx.cond(
+                            State.exercise_premium_positive,
+                            rx.text(
+                                State.early_exercise_reason,
+                                font_size="1", color="#b45309",
+                                padding="6px 10px",
+                                background="#fef3c7",
+                                border_radius="4px",
+                                max_width="400px",
+                            ),
+                        ),
+                        spacing="2",
+                    ),
+                    rx.vstack(
+                        rx.text("Steps: ", State.bin_steps,
+                                font_size="1", color=_MUTED),
+                        rx.slider(
+                            default_value=[100],
+                            min=10,
+                            max=500,
+                            step=10,
+                            on_value_commit=State.set_bin_steps,
+                            width="200px",
+                        ),
+                        rx.text("10 ← convergence → 500",
+                                font_size="1", color=_MUTED),
+                        spacing="1",
+                    ),
+                    spacing="4",
+                    align="start",
+                ),
+                spacing="2",
+                padding="6px 12px",
+                **CARD_STYLE,
+            ),
             # Greeks table
             greeks_table(),
             # 2 Charts side by side below
@@ -1133,43 +1302,43 @@ def pricer_tab() -> rx.Component:
                                 rx.recharts.line(data_key="put_cash_delta", stroke="#dd6b20",
                                                  stroke_width=2, dot=False, name="Put Cash$"),
                             ],
-                            "spot", State.spot_ladder_data, h=360, w=500,
+                            "spot", State.spot_ladder_data, h=360, w=500, ref_x=State.K_ref,
                         )),
                         ("Cash Gamma", _chart(
                             "Cash Gamma / 1% vs Spot",
                             [rx.recharts.line(data_key="cash_gamma", stroke="#805ad5",
                                               stroke_width=2, dot=False, name="Cash Gamma")],
-                            "spot", State.spot_ladder_data, h=360, w=500,
+                            "spot", State.spot_ladder_data, h=360, w=500, ref_x=State.K_ref,
                         )),
                         ("Cash Theta", _chart(
                             "Cash Theta / day vs Spot",
                             [rx.recharts.line(data_key="cash_theta", stroke="#c05621",
                                               stroke_width=2, dot=False, name="Cash Theta")],
-                            "spot", State.spot_ladder_data, h=360, w=500,
+                            "spot", State.spot_ladder_data, h=360, w=500, ref_x=State.K_ref,
                         )),
                         ("Cash Vega", _chart(
                             "Cash Vega / 1% vs Spot",
                             [rx.recharts.line(data_key="cash_vega", stroke="#2b6cb0",
                                               stroke_width=2, dot=False, name="Cash Vega")],
-                            "spot", State.spot_ladder_data, h=360, w=500,
+                            "spot", State.spot_ladder_data, h=360, w=500, ref_x=State.K_ref,
                         )),
                         ("Cash Charm", _chart(
                             "Cash Charm / day vs Spot",
                             [rx.recharts.line(data_key="cash_charm", stroke="#276749",
                                               stroke_width=2, dot=False, name="Cash Charm")],
-                            "spot", State.spot_ladder_data, h=360, w=500,
+                            "spot", State.spot_ladder_data, h=360, w=500, ref_x=State.K_ref,
                         )),
                         ("Cash Vanna", _chart(
                             "Cash Vanna / 1% vs Spot",
                             [rx.recharts.line(data_key="cash_vanna", stroke="#97266d",
                                               stroke_width=2, dot=False, name="Cash Vanna")],
-                            "spot", State.spot_ladder_data, h=360, w=500,
+                            "spot", State.spot_ladder_data, h=360, w=500, ref_x=State.K_ref,
                         )),
                         ("Cash Rho", _chart(
                             "Cash Rho / 1% vs Spot",
                             [rx.recharts.line(data_key="cash_rho", stroke="#b83280",
                                               stroke_width=2, dot=False, name="Cash Rho")],
-                            "spot", State.spot_ladder_data, h=360, w=500,
+                            "spot", State.spot_ladder_data, h=360, w=500, ref_x=State.K_ref,
                         )),
                         # Default: Price
                         _chart(
@@ -1180,7 +1349,7 @@ def pricer_tab() -> rx.Component:
                                 rx.recharts.line(data_key="put_price", stroke="#e53e3e",
                                                  stroke_width=2, dot=False, name="Put"),
                             ],
-                            "spot", State.spot_ladder_data, h=360, w=500,
+                            "spot", State.spot_ladder_data, h=360, w=500, ref_x=State.K_ref,
                         ),
                     ),
                     background=_BG,
