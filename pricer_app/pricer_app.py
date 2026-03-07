@@ -1199,30 +1199,30 @@ def pricer_tab() -> rx.Component:
             ),
             # American vs European comparison
             rx.vstack(
-                rx.text("Analyse Exercice Anticipe (Style Americain)",
+                rx.text("Early Exercise Analysis (American Style)",
                         font_size="2", font_weight="600", color=_TEXT),
                 rx.hstack(
                     rx.vstack(
                         rx.el.table(
                             rx.el.tbody(
                                 rx.el.tr(
-                                    rx.el.td("Prix Europeen (arbre)", style=_TD),
+                                    rx.el.td("European Price (tree)", style=_TD),
                                     rx.el.td(State.american_eu_price_display, style={**_TD, "text_align": "right"}),
                                 ),
                                 rx.el.tr(
-                                    rx.el.td("Prix Americain (CRR)", style=_TD),
+                                    rx.el.td("American Price (CRR)", style=_TD),
                                     rx.el.td(State.american_price_display, style={**_TD, "text_align": "right", "font_weight": "600"}),
                                 ),
                                 rx.el.tr(
-                                    rx.el.td("Prime d'exercice anticipe", style=_TD),
+                                    rx.el.td("Early Exercise Premium", style=_TD),
                                     rx.el.td(State.exercise_premium_display, style={**_TD, "text_align": "right", "color": "#2b6cb0"}),
                                 ),
                                 rx.el.tr(
-                                    rx.el.td("Prime (%)", style=_TD),
+                                    rx.el.td("Premium (%)", style=_TD),
                                     rx.el.td(State.exercise_premium_pct_display, style={**_TD, "text_align": "right", "color": "#2b6cb0"}),
                                 ),
                                 rx.el.tr(
-                                    rx.el.td("Delta Americain", style=_TD),
+                                    rx.el.td("American Delta", style=_TD),
                                     rx.el.td(State.american_delta_display, style={**_TD, "text_align": "right"}),
                                 ),
                             ),
