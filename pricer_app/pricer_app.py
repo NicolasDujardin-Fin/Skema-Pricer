@@ -29,7 +29,14 @@ from bs_engine import (
     gamma_spot_ladder,
     gamma_vol_ladder,
 )
-from bond_engine import bond_price_from_ytm, bond_price_yield_curve
+from bond_engine import (
+    bond_price_from_ytm,
+    bond_price_yield_curve,
+    callable_bond_tree,
+    callable_bond_tree_detail,
+    callable_bond_yield_curve,
+    yield_to_call,
+)
 from numerical_engine import american_binomial_tree
 from rates_engine import forward_ladder, price_forward
 
@@ -73,6 +80,14 @@ class State(rx.State):
     bond_ytm: float = 5.0
     bond_freq: int = 2
     bond_settlement_days: float = 0.0
+    bond_notional: float = 1000000.0
+    bond_notional_str: str = "1,000,000"
+    bond_bp_shift: float = 1.0
+    bond_callable: bool = False
+    bond_call_price: float = 1000.0
+    bond_first_call: float = 5.0
+    bond_rate_vol: float = 20.0
+    bond_tree_steps: int = 6
 
     # ------------------------------------------------------------------
     # Ladder range controls
@@ -560,9 +575,51 @@ class State(rx.State):
         return str(self.bond_freq)
 
     @rx.var(cache=True)
+    def bond_tree_steps_str(self) -> str:
+        return str(self.bond_tree_steps)
+
+    @rx.var(cache=True)
     def bond_convexity_display(self) -> str:
         try:
             return f"{self.bond_result['convexity']:.4f}"
+        except Exception:
+            return "—"
+
+    @rx.var(cache=True)
+    def bond_dv01_display(self) -> str:
+        """DV01 = Modified Duration × Dirty Price × 0.0001 (per 100 face)."""
+        try:
+            res = self.bond_result
+            dv01 = res["modified_duration"] * res["dirty_price"] * 0.0001
+            return f"{dv01:.4f}"
+        except Exception:
+            return "—"
+
+    @rx.var(cache=True)
+    def bond_pv01_notional_display(self) -> str:
+        """PV01 on notional = DV01 × (notional / face)."""
+        try:
+            res = self.bond_result
+            dv01 = res["modified_duration"] * res["dirty_price"] * 0.0001
+            pv01 = dv01 * (self.bond_notional / self.bond_face)
+            return f"{pv01:,.2f}"
+        except Exception:
+            return "—"
+
+    @rx.var(cache=True)
+    def bond_pnl_display(self) -> str:
+        """PnL for a given bp shift = -ModDur × Price × bp/10000 × (notional/face), with convexity adjustment."""
+        try:
+            res = self.bond_result
+            bp = self.bond_bp_shift
+            dy = bp / 10000
+            n = self.bond_notional / self.bond_face
+            price = res["dirty_price"]
+            md = res["modified_duration"]
+            cx = res["convexity"]
+            # PnL = (-ModDur × dy + 0.5 × Convexity × dy²) × Price × n
+            pnl = (-md * dy + 0.5 * cx * dy ** 2) * price * n
+            return f"{pnl:,.2f}"
         except Exception:
             return "—"
 
@@ -589,12 +646,171 @@ class State(rx.State):
     def bond_yield_curve_data(self) -> list[dict[str, Any]]:
         try:
             effective_mat = max(0.01, self.bond_maturity - self.bond_settlement_days / 365.0)
-            return bond_price_yield_curve(
+            if self.bond_callable:
+                return callable_bond_yield_curve(
+                    self.bond_face, self.bond_coupon, effective_mat,
+                    self.bond_freq, self.bond_call_price,
+                    min(self.bond_first_call, effective_mat),
+                    self.bond_rate_vol,
+                )
+            # Non-callable: use "straight" key (same as callable data format)
+            raw = bond_price_yield_curve(
                 self.bond_face, self.bond_coupon, effective_mat,
                 self.bond_freq,
             )
+            return [{"ytm": d["ytm"], "straight": d["price"]} for d in raw]
         except Exception:
             return []
+
+    # ------------------------------------------------------------------
+    # Callable bond computed vars
+    # ------------------------------------------------------------------
+
+    @rx.var(cache=True)
+    def callable_result(self) -> dict[str, Any]:
+        try:
+            effective_mat = max(0.01, self.bond_maturity - self.bond_settlement_days / 365.0)
+            return callable_bond_tree(
+                self.bond_face, self.bond_coupon, effective_mat,
+                self.bond_ytm, self.bond_freq, self.bond_call_price,
+                min(self.bond_first_call, effective_mat),
+                self.bond_rate_vol,
+            )
+        except Exception:
+            return {"straight_price": 0.0, "callable_price": 0.0, "option_value": 0.0}
+
+    @rx.var(cache=True)
+    def callable_price_display(self) -> str:
+        try:
+            return f"{self.callable_result['callable_price']:.4f}"
+        except Exception:
+            return "—"
+
+    @rx.var(cache=True)
+    def callable_option_value_display(self) -> str:
+        try:
+            return f"{self.callable_result['option_value']:.4f}"
+        except Exception:
+            return "—"
+
+    @rx.var(cache=True)
+    def bond_ytc_display(self) -> str:
+        try:
+            effective_mat = max(0.01, self.bond_maturity - self.bond_settlement_days / 365.0)
+            dirty = self.bond_result["dirty_price"]
+            first_call = min(self.bond_first_call, effective_mat)
+            ytc = yield_to_call(
+                self.bond_face, self.bond_coupon, first_call,
+                self.bond_call_price, self.bond_freq, dirty,
+            )
+            if ytc is None:
+                return "—"
+            return f"{ytc:.4f}%"
+        except Exception:
+            return "—"
+
+    @rx.var(cache=True)
+    def bond_ytw_display(self) -> str:
+        """Yield to Worst = min(YTM, YTC)."""
+        try:
+            effective_mat = max(0.01, self.bond_maturity - self.bond_settlement_days / 365.0)
+            dirty = self.bond_result["dirty_price"]
+            first_call = min(self.bond_first_call, effective_mat)
+            ytc = yield_to_call(
+                self.bond_face, self.bond_coupon, first_call,
+                self.bond_call_price, self.bond_freq, dirty,
+            )
+            if ytc is None:
+                return f"{self.bond_ytm:.4f}%"
+            ytw = min(self.bond_ytm, ytc)
+            return f"{ytw:.4f}%"
+        except Exception:
+            return "—"
+
+    @rx.var(cache=True)
+    def bond_tree_svg(self) -> str:
+        """Generate an SVG visualisation of the callable bond binomial tree."""
+        try:
+            effective_mat = max(0.01, self.bond_maturity - self.bond_settlement_days / 365.0)
+            nodes = callable_bond_tree_detail(
+                self.bond_face, self.bond_coupon, effective_mat,
+                self.bond_ytm, self.bond_freq, self.bond_call_price,
+                min(self.bond_first_call, effective_mat),
+                self.bond_rate_vol, self.bond_tree_steps,
+            )
+        except Exception:
+            return '<svg width="400" height="100"><text x="10" y="50" font-size="14">Error building tree</text></svg>'
+
+        n = self.bond_tree_steps
+        # Layout
+        margin_x, margin_y = 60, 40
+        node_dx = 130
+        node_dy = 56
+        w = margin_x * 2 + node_dx * n
+        h = margin_y * 2 + node_dy * n
+
+        parts = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" '
+                 f'style="background:#fff;font-family:Consolas,monospace;">']
+
+        # Index nodes by (step, j)
+        idx = {}
+        for nd in nodes:
+            idx[(nd["step"], nd["j"])] = nd
+
+        def cx(step):
+            return margin_x + step * node_dx
+
+        def cy(step, j):
+            # center vertically; j=0 bottom, j=step top
+            mid = h / 2
+            return mid - (2 * j - step) * node_dy / 2
+
+        # Draw edges first (so they are behind nodes)
+        for step in range(n):
+            for j in range(step + 1):
+                x1, y1 = cx(step), cy(step, j)
+                # up child
+                x2u, y2u = cx(step + 1), cy(step + 1, j + 1)
+                x2d, y2d = cx(step + 1), cy(step + 1, j)
+                parts.append(f'<line x1="{x1}" y1="{y1}" x2="{x2u}" y2="{y2u}" stroke="#bbb" stroke-width="1"/>')
+                parts.append(f'<line x1="{x1}" y1="{y1}" x2="{x2d}" y2="{y2d}" stroke="#bbb" stroke-width="1"/>')
+
+        # Draw nodes
+        for nd in nodes:
+            step, j = nd["step"], nd["j"]
+            x, y = cx(step), cy(step, j)
+            fill = "#fee2e2" if nd["called"] else "#e0f2fe"
+            stroke = "#dc2626" if nd["called"] else "#3182ce"
+            r_pct = nd["rate"]
+            val = nd["callable"]
+
+            # Node box
+            bw, bh = 100, 42
+            parts.append(
+                f'<rect x="{x - bw//2}" y="{y - bh//2}" width="{bw}" height="{bh}" '
+                f'rx="6" fill="{fill}" stroke="{stroke}" stroke-width="1.5"/>'
+            )
+            # Rate (top line)
+            parts.append(
+                f'<text x="{x}" y="{y - 5}" text-anchor="middle" font-size="10" fill="#666">'
+                f'r={r_pct:.1f}%</text>'
+            )
+            # Value (bottom line)
+            label = f"CALLED" if nd["called"] else f"{val:,.1f}"
+            parts.append(
+                f'<text x="{x}" y="{y + 12}" text-anchor="middle" font-size="11" '
+                f'font-weight="600" fill="{stroke}">{label}</text>'
+            )
+
+        # Legend
+        ly = h - 16
+        parts.append(f'<rect x="10" y="{ly - 10}" width="12" height="12" rx="2" fill="#e0f2fe" stroke="#3182ce"/>')
+        parts.append(f'<text x="26" y="{ly}" font-size="10" fill="#333">Not called</text>')
+        parts.append(f'<rect x="110" y="{ly - 10}" width="12" height="12" rx="2" fill="#fee2e2" stroke="#dc2626"/>')
+        parts.append(f'<text x="126" y="{ly}" font-size="10" fill="#333">Called (capped at call price)</text>')
+
+        parts.append("</svg>")
+        return "\n".join(parts)
 
     @rx.var(cache=True)
     def vol_greeks_data(self) -> list[dict[str, Any]]:
@@ -942,6 +1158,37 @@ class State(rx.State):
 
     def set_bond_settlement_days(self, v: str):
         try: self.bond_settlement_days = max(0, float(v))
+        except ValueError: pass
+
+    def set_bond_notional(self, v: str):
+        try:
+            cleaned = v.replace(",", "").replace(" ", "")
+            self.bond_notional = max(0, float(cleaned))
+            self.bond_notional_str = f"{self.bond_notional:,.0f}"
+        except ValueError:
+            self.bond_notional_str = v
+
+    def set_bond_bp_shift(self, v: str):
+        try: self.bond_bp_shift = float(v)
+        except ValueError: pass
+
+    def set_bond_callable(self, v: bool):
+        self.bond_callable = v
+
+    def set_bond_call_price(self, v: str):
+        try: self.bond_call_price = max(0, float(v))
+        except ValueError: pass
+
+    def set_bond_first_call(self, v: str):
+        try: self.bond_first_call = max(0.5, float(v))
+        except ValueError: pass
+
+    def set_bond_rate_vol(self, v: str):
+        try: self.bond_rate_vol = max(0, float(v))
+        except ValueError: pass
+
+    def set_bond_tree_steps(self, v: str):
+        try: self.bond_tree_steps = max(2, min(10, int(v)))
         except ValueError: pass
 
 
@@ -1778,6 +2025,53 @@ def bond_inputs_panel() -> rx.Component:
             align="center",
             spacing="2",
         ),
+        rx.box(height="1em"),
+        rx.heading("Risk Analysis", size="4", margin_bottom="0.5em", color=_TEXT),
+        rx.hstack(
+            rx.text("Notional", width=LABEL_W, font_size="2", color=_TEXT),
+            rx.input(
+                value=State.bond_notional_str,
+                on_change=State.set_bond_notional,
+                size="2",
+                width=INPUT_W,
+            ),
+            align="center",
+            spacing="2",
+        ),
+        rx.hstack(
+            rx.text("Shift (bp)", width=LABEL_W, font_size="2", color=_TEXT),
+            rx.input(
+                value=State.bond_bp_shift,
+                on_change=State.set_bond_bp_shift,
+                type="number",
+                size="2",
+                width=INPUT_W,
+                step="1",
+            ),
+            align="center",
+            spacing="2",
+        ),
+        rx.box(height="1em"),
+        rx.heading("Callable Bond", size="4", margin_bottom="0.5em", color=_TEXT),
+        rx.hstack(
+            rx.text("Callable", width=LABEL_W, font_size="2", color=_TEXT),
+            rx.switch(
+                checked=State.bond_callable,
+                on_change=State.set_bond_callable,
+                size="1",
+            ),
+            align="center",
+            spacing="2",
+        ),
+        rx.cond(
+            State.bond_callable,
+            rx.vstack(
+                param_row("Call price", State.bond_call_price, State.set_bond_call_price, "10"),
+                param_row("First call (y)", State.bond_first_call, State.set_bond_first_call, "0.5"),
+                param_row("Rate vol (%)", State.bond_rate_vol, State.set_bond_rate_vol, "1"),
+                spacing="2",
+            ),
+        ),
         spacing="2",
         padding="1em",
         **CARD_STYLE,
@@ -1802,6 +2096,63 @@ def bond_tab() -> rx.Component:
                 spacing="3",
                 flex_wrap="wrap",
             ),
+            # Risk metrics row
+            rx.hstack(
+                metric_card("DV01 (per bond)", State.bond_dv01_display),
+                metric_card("PV01 (notional)", State.bond_pv01_notional_display),
+                metric_card("PnL (bp shift)", State.bond_pnl_display),
+                spacing="3",
+                flex_wrap="wrap",
+            ),
+            # Callable bond metrics (shown only when callable toggle is on)
+            rx.cond(
+                State.bond_callable,
+                rx.hstack(
+                    metric_card("Callable Price", State.callable_price_display),
+                    metric_card("Option Value", State.callable_option_value_display),
+                    metric_card("Yield to Call", State.bond_ytc_display),
+                    metric_card("Yield to Worst", State.bond_ytw_display),
+                    # Show Tree button + dialog
+                    rx.dialog.root(
+                        rx.dialog.trigger(
+                            rx.button("Show Tree", size="1", variant="outline",
+                                      color_scheme="blue", cursor="pointer"),
+                        ),
+                        rx.dialog.content(
+                            rx.dialog.title("Binomial Rate Tree", color=_TEXT),
+                            rx.dialog.description(
+                                "Lognormal short-rate tree — red nodes are called by the issuer.",
+                                color=_MUTED, font_size="2",
+                            ),
+                            rx.hstack(
+                                rx.text("Steps:", font_size="2", color=_TEXT),
+                                rx.select(
+                                    ["3", "4", "5", "6", "7", "8"],
+                                    value=State.bond_tree_steps_str,
+                                    on_change=State.set_bond_tree_steps,
+                                    size="1",
+                                ),
+                                align="center",
+                                spacing="2",
+                                margin_bottom="0.5em",
+                            ),
+                            rx.box(
+                                rx.html(State.bond_tree_svg),
+                                overflow_x="auto",
+                                overflow_y="auto",
+                                max_height="70vh",
+                            ),
+                            rx.dialog.close(
+                                rx.button("Close", size="1", variant="soft", margin_top="1em"),
+                            ),
+                            max_width="95vw",
+                        ),
+                    ),
+                    spacing="3",
+                    flex_wrap="wrap",
+                    align="center",
+                ),
+            ),
             # Two charts side by side
             rx.hstack(
                 # Chart 1: Price-Yield relationship
@@ -1809,14 +2160,17 @@ def bond_tab() -> rx.Component:
                     rx.vstack(
                         rx.text("Bond Price vs Yield", font_size="2", font_weight="600", color=_TEXT),
                         rx.recharts.line_chart(
-                            rx.recharts.line(data_key="price", stroke="#3182ce",
-                                             stroke_width=2, dot=False, name="Price"),
+                            rx.recharts.line(data_key="straight", stroke="#3182ce",
+                                             stroke_width=2, dot=False, name="Straight"),
+                            rx.recharts.line(data_key="callable", stroke="#e53e3e",
+                                             stroke_width=2, dot=False, name="Callable"),
                             rx.recharts.x_axis(data_key="ytm", stroke="#bbb", tick_line=False,
                                                label={"value": "YTM (%)", "position": "insideBottom", "offset": -4}),
                             rx.recharts.y_axis(stroke="#bbb", tick_line=False),
                             rx.recharts.cartesian_grid(stroke="#e5e5e5", horizontal=True, vertical=False),
                             rx.recharts.reference_line(y=State.bond_face_ref, stroke="#999",
                                                        stroke_dasharray="4 4", label="Par"),
+                            rx.recharts.legend(vertical_align="top"),
                             rx.recharts.graphing_tooltip(),
                             data=State.bond_yield_curve_data,
                             width=500,
