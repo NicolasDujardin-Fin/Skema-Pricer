@@ -503,6 +503,10 @@ class State(rx.State):
     # ------------------------------------------------------------------
 
     @rx.var(cache=True)
+    def bond_face_ref(self) -> int:
+        return int(round(self.bond_face))
+
+    @rx.var(cache=True)
     def bond_result(self) -> dict[str, Any]:
         try:
             return bond_price_from_ytm(
@@ -1782,7 +1786,7 @@ def bond_tab() -> rx.Component:
                                                label={"value": "YTM (%)", "position": "insideBottom", "offset": -4}),
                             rx.recharts.y_axis(stroke="#bbb", tick_line=False),
                             rx.recharts.cartesian_grid(stroke="#e5e5e5", horizontal=True, vertical=False),
-                            rx.recharts.reference_line(y=State.bond_face, stroke="#999",
+                            rx.recharts.reference_line(y=State.bond_face_ref, stroke="#999",
                                                        stroke_dasharray="4 4", label="Par"),
                             rx.recharts.graphing_tooltip(),
                             data=State.bond_yield_curve_data,
