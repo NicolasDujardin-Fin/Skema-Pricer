@@ -416,52 +416,46 @@ class State(rx.State):
 
     # ------------------------------------------------------------------
     # American pricing (binomial tree)
+    # Both EU and AM prices come from the SAME tree so premium >= 0.
     # ------------------------------------------------------------------
 
     @rx.var(cache=True)
-    def american_price(self) -> float:
+    def _american_result(self) -> dict[str, float]:
         try:
             b = self.r - self.q - self.repo
-            res = american_binomial_tree(
+            return american_binomial_tree(
                 self.S, self.K, self.T, self.r, b, self.sigma,
                 self.bin_steps, self.option_type,
             )
-            return round(res["price"], 6)
         except Exception:
-            return 0.0
-
-    @rx.var(cache=True)
-    def american_delta(self) -> float:
-        try:
-            b = self.r - self.q - self.repo
-            res = american_binomial_tree(
-                self.S, self.K, self.T, self.r, b, self.sigma,
-                self.bin_steps, self.option_type,
-            )
-            return round(res["delta"], 6)
-        except Exception:
-            return 0.0
+            return {"price": 0.0, "eu_price": 0.0, "delta": 0.0}
 
     @rx.var(cache=True)
     def american_price_display(self) -> str:
         try:
-            return f"{self.american_price:.4f}"
+            return f"{self._american_result['price']:.4f}"
+        except Exception:
+            return "—"
+
+    @rx.var(cache=True)
+    def american_eu_price_display(self) -> str:
+        try:
+            return f"{self._american_result['eu_price']:.4f}"
         except Exception:
             return "—"
 
     @rx.var(cache=True)
     def american_delta_display(self) -> str:
         try:
-            return f"{self.american_delta:.6f}"
+            return f"{self._american_result['delta']:.6f}"
         except Exception:
             return "—"
 
     @rx.var(cache=True)
     def exercise_premium_display(self) -> str:
         try:
-            eu = bs_price(self.S, self.K, self.T, self.r,
-                          self.q, self.repo, self.sigma, self.option_type)
-            prem = self.american_price - eu
+            res = self._american_result
+            prem = res["price"] - res["eu_price"]
             return f"{prem:.4f}"
         except Exception:
             return "—"
@@ -469,11 +463,11 @@ class State(rx.State):
     @rx.var(cache=True)
     def exercise_premium_pct_display(self) -> str:
         try:
-            eu = bs_price(self.S, self.K, self.T, self.r,
-                          self.q, self.repo, self.sigma, self.option_type)
+            res = self._american_result
+            eu = res["eu_price"]
             if eu < 0.0001:
                 return "—"
-            prem = self.american_price - eu
+            prem = res["price"] - eu
             return f"{prem / eu * 100:.2f}%"
         except Exception:
             return "—"
@@ -481,9 +475,8 @@ class State(rx.State):
     @rx.var(cache=True)
     def exercise_premium_positive(self) -> bool:
         try:
-            eu = bs_price(self.S, self.K, self.T, self.r,
-                          self.q, self.repo, self.sigma, self.option_type)
-            return (self.american_price - eu) > 0.001
+            res = self._american_result
+            return (res["price"] - res["eu_price"]) > 0.0001
         except Exception:
             return False
 
@@ -491,7 +484,7 @@ class State(rx.State):
     def early_exercise_reason(self) -> str:
         ot = self.option_type.lower()
         if ot == "put":
-            return "Put deep ITM : la valeur temps restante est inferieure aux interets gagnes en exercant maintenant (K × r × dt > time value)."
+            return "Put deep ITM : la valeur temps restante est inferieure aux interets gagnes en exercant maintenant (K x r x dt > time value)."
         else:
             return "Call avec dividende : le dividende perdu en ne detenant pas le sous-jacent depasse la valeur temps restante de l'option."
 
@@ -1213,8 +1206,8 @@ def pricer_tab() -> rx.Component:
                         rx.el.table(
                             rx.el.tbody(
                                 rx.el.tr(
-                                    rx.el.td("Prix Europeen (BS)", style=_TD),
-                                    rx.el.td(State.bs_price_display, style={**_TD, "text_align": "right"}),
+                                    rx.el.td("Prix Europeen (arbre)", style=_TD),
+                                    rx.el.td(State.american_eu_price_display, style={**_TD, "text_align": "right"}),
                                 ),
                                 rx.el.tr(
                                     rx.el.td("Prix Americain (CRR)", style=_TD),

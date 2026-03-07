@@ -25,6 +25,9 @@ def american_binomial_tree(
 ) -> dict:
     """Price an American option using a CRR binomial tree (vectorised).
 
+    Both the American and European prices are computed on the same tree
+    so that the early-exercise premium is always >= 0.
+
     Parameters
     ----------
     S : float
@@ -47,8 +50,9 @@ def american_binomial_tree(
     Returns
     -------
     dict with keys:
-        - "price"  : float — American option price
-        - "delta"  : float — hedge ratio from the first step of the tree
+        - "price"    : float — American option price
+        - "eu_price" : float — European option price (same tree, no early exercise)
+        - "delta"    : float — hedge ratio from the first step of the tree
     """
     dt = T / n
     u = np.exp(sigma * np.sqrt(dt))
@@ -61,76 +65,50 @@ def american_binomial_tree(
     if ot not in ("call", "put"):
         raise ValueError(f"option_type must be 'call' or 'put', got '{option_type}'")
 
+    is_call = ot == "call"
+
     # Terminal spot prices at step n: S * u^j * d^(n-j) for j = 0..n
     j = np.arange(n + 1)
     S_T = S * u ** j * d ** (n - j)
 
-    # Terminal payoff
-    if ot == "call":
-        values = np.maximum(S_T - K, 0.0)
+    # Terminal payoff (same for EU and AM)
+    if is_call:
+        payoff = np.maximum(S_T - K, 0.0)
     else:
-        values = np.maximum(K - S_T, 0.0)
+        payoff = np.maximum(K - S_T, 0.0)
 
-    # Backward induction with early-exercise check
+    am_values = payoff.copy()
+    eu_values = payoff.copy()
+
+    # Backward induction
     for step in range(n - 1, -1, -1):
-        j = np.arange(step + 1)
-        S_node = S * u ** j * d ** (step - j)
-        continuation = disc * (p * values[1:step + 2] + (1 - p) * values[:step + 1])
-        if ot == "call":
+        # Continuation value (same formula for both)
+        am_cont = disc * (p * am_values[1:step + 2] + (1 - p) * am_values[:step + 1])
+        eu_cont = disc * (p * eu_values[1:step + 2] + (1 - p) * eu_values[:step + 1])
+
+        # European: just continuation
+        eu_values = eu_cont
+
+        # American: max(continuation, intrinsic)
+        j_step = np.arange(step + 1)
+        S_node = S * u ** j_step * d ** (step - j_step)
+        if is_call:
             intrinsic = np.maximum(S_node - K, 0.0)
         else:
             intrinsic = np.maximum(K - S_node, 0.0)
-        values = np.maximum(continuation, intrinsic)
+        am_values = np.maximum(am_cont, intrinsic)
 
-    price = float(values[0])
+        # Capture values at step 1 for delta calculation
+        if step == 1:
+            am_up = float(am_values[1])
+            am_dn = float(am_values[0])
 
-    # Delta from the first step
+    price = float(am_values[0])
+    eu_price = float(eu_values[0])
+
+    # Delta from step 1
     S_up = S * u
     S_dn = S * d
-    if ot == "call":
-        v_up = float(disc * (p * np.maximum(S * u * u - K, 0.0) + (1 - p) * np.maximum(S - K, 0.0)))
-        v_dn = float(disc * (p * np.maximum(S - K, 0.0) + (1 - p) * np.maximum(S * d * d - K, 0.0)))
-    else:
-        v_up = float(disc * (p * np.maximum(K - S * u * u, 0.0) + (1 - p) * np.maximum(K - S, 0.0)))
-        v_dn = float(disc * (p * np.maximum(K - S, 0.0) + (1 - p) * np.maximum(K - S * d * d, 0.0)))
+    delta = (am_up - am_dn) / (S_up - S_dn)
 
-    # Recompute v_up and v_dn properly from the full tree for accuracy
-    # Use the actual tree values at step 1
-    # Re-run a mini backward induction for step-1 values
-    j1 = np.arange(n + 1)
-    S_T1 = S * u * u ** j1 * d ** (n - j1)  # paths from S_up
-    if ot == "call":
-        vals_up = np.maximum(S_T1 - K, 0.0)
-    else:
-        vals_up = np.maximum(K - S_T1, 0.0)
-    for step in range(n - 1, 0, -1):
-        j = np.arange(step + 1)
-        S_node = S * u * u ** j * d ** (step - j)
-        cont = disc * (p * vals_up[1:step + 2] + (1 - p) * vals_up[:step + 1])
-        if ot == "call":
-            intr = np.maximum(S_node - K, 0.0)
-        else:
-            intr = np.maximum(K - S_node, 0.0)
-        vals_up = np.maximum(cont, intr)
-    f_up = float(vals_up[0])
-
-    j1 = np.arange(n + 1)
-    S_T1 = S * d * u ** j1 * d ** (n - j1)  # paths from S_dn
-    if ot == "call":
-        vals_dn = np.maximum(S_T1 - K, 0.0)
-    else:
-        vals_dn = np.maximum(K - S_T1, 0.0)
-    for step in range(n - 1, 0, -1):
-        j = np.arange(step + 1)
-        S_node = S * d * u ** j * d ** (step - j)
-        cont = disc * (p * vals_dn[1:step + 2] + (1 - p) * vals_dn[:step + 1])
-        if ot == "call":
-            intr = np.maximum(S_node - K, 0.0)
-        else:
-            intr = np.maximum(K - S_node, 0.0)
-        vals_dn = np.maximum(cont, intr)
-    f_dn = float(vals_dn[0])
-
-    delta = (f_up - f_dn) / (S_up - S_dn)
-
-    return {"price": price, "delta": delta}
+    return {"price": price, "eu_price": eu_price, "delta": delta}
