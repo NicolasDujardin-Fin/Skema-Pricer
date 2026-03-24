@@ -737,6 +737,159 @@ def options_tab():
                                    legend_below=True)
             st.plotly_chart(fig, use_container_width=True)
 
+    st.markdown("")
+    _section("Interview Q&A — Forwards & Options")
+
+    # ── Forwards ──
+
+    with st.expander("**Q1. Is the Forward the market's price prediction of the Spot in the future?**"):
+        st.markdown("""
+**No. The Forward is the cost of replication.**
+
+If you want to own the stock in 6 months, you have two choices:
+1. Buy it in 6 months (you don't know the price).
+2. Buy it **today** at the Spot price.
+
+But buying today means you need to **borrow cash** (paying interest) and **carry the stock**
+(receiving dividends). The dividend collected reduces the cost of carry.
+
+**F = S × e^{(r − q) × T}**
+
+The Forward is not a forecast — it's an arbitrage-enforced price that reflects the cost of
+financing minus the benefit of holding.
+""")
+
+    with st.expander("**Q2. Stock XYZ's 6-month Forward trades at a 5% discount to Spot. Why?**"):
+        st.markdown("""
+**Two main reasons: high repo rate or high dividend yield.**
+
+Usually F > S because of financing costs. But when the **benefit of holding** the stock
+(dividends + repo income from lending shares) **outweighs** the cost of borrowing cash,
+the Forward is pulled below the Spot.
+
+F = S × e^{(r − q − repo) × T}
+
+If (q + repo) > r, then the exponent is negative → **F < S**.
+""")
+
+    with st.expander("**Q3. A company slashes its dividend from €4 to €2. Spot stays flat. What happens to your Call options?**"):
+        st.markdown("""
+**Call prices increase.**
+
+A call is **long the forward**. When dividends decrease, the forward price **increases**
+(less dividend drag on the carry). Higher forward → higher call value.
+
+Even though the Spot didn't move, the forward shifted up, and all call strikes benefit.
+Puts decrease for the same reason.
+""")
+
+    with st.expander("**Q4. Spot = 100, r = 5%, no dividends. The 1Y Forward trades at 110. How do you arbitrage?**"):
+        st.markdown("""
+**Cash-and-Carry Arbitrage.** Fair Forward = 100 × (1 + 5%) = **105**. At 110, the Forward
+is overpriced by 5.
+
+**Execution:**
+1. **Borrow** €100 at 5% for 1 year.
+2. **Buy** the stock at 100.
+3. **Sell** the 1Y Forward at 110.
+
+**At maturity:**
+- Deliver the stock via the Forward → receive 110.
+- Repay the loan → pay 105.
+- **Risk-free profit = 5.**
+""")
+
+    with st.expander("**Q5. You buy a 1Y Forward. A €5 dividend is paid at 6 months as expected. Spot drops by €5. Does your Forward price change?**"):
+        st.markdown("""
+**No.** The Forward price remains unchanged (assuming no other market moves).
+
+The dividend was already **priced into** the Forward at inception. When the stock goes
+ex-dividend:
+- Spot drops by €5 (expected).
+- But q (the dividend yield) is also gone — it no longer drags the Forward.
+
+These two effects **exactly offset**. There is no P&L impact at the moment of payment.
+""")
+
+    with st.expander("**Q6. Same setup, but the company surprises with a €6 dividend instead of the expected €5. What happens?**"):
+        st.markdown("""
+**The Forward drops by approximately €1** (the unexpected portion).
+
+- At T₀, the Forward was built pricing in €5 of dividends.
+- The Spot drops by €6 (the actual dividend).
+- But the Forward only had "protection" for €5.
+- The extra €1 drop is **new information** that wasn't hedged.
+
+The Forward must adjust down by the **surprise component** (€6 − €5 = €1).
+This is why unexpected dividend changes create P&L on forward/option positions.
+""")
+
+    # ── Options Pricing ──
+
+    with st.expander("**Q7. Vol = 20%, Spot = 100. Which is cheaper: a 3M ATM straddle or a 1Y ATM call?**"):
+        st.markdown("""
+**They cost the same ≈ 8.**
+
+Using the ATM approximation:
+- **Straddle (3M)** = 0.8 × S × σ × √T = 0.8 × 100 × 0.20 × √0.25 = 0.8 × 100 × 0.20 × 0.5 = **8**
+- **ATM Call (1Y)** = 0.4 × S × σ × √T = 0.4 × 100 × 0.20 × 1.0 = **8**
+
+Note: a straddle = call + put, and the ATM approximation gives Straddle ≈ 0.8 × S × σ × √T,
+while a single ATM call ≈ 0.4 × S × σ × √T. The straddle's shorter maturity compensates for
+having two legs.
+""")
+
+    with st.expander("**Q8. Which is more expensive: 1 Call strike 100 or 2 Calls strike 200?**"):
+        st.markdown("""
+**1 Call strike 100 is more expensive**, because of **gamma convexity**.
+
+Talking about convexity abstractly doesn't help — here's a concrete example.
+Assume 3 equally likely outcomes: Spot = 100, 200, or 300.
+
+| Scenario | 1 × Call(K=100) | 1 × Call(K=200) |
+|---|---|---|
+| S_T = 100 | 0 | 0 |
+| S_T = 200 | 100 | 0 |
+| S_T = 300 | 200 | 100 |
+| **Average** | **300 / 3 = 100** | **100 / 3 = 33** |
+
+So 2 × Call(K=200) = 2 × 33 = **66**.
+
+**1 Call(K=100) = 100 > 66 = 2 Calls(K=200).**
+
+The lower-strike call benefits more from large moves because its payoff is **linear in S**
+over a wider range. This is the convexity advantage.
+""")
+
+    with st.expander("**Q9. You are gamma long, delta hedged. Which path makes more money: +3%, +3%, +3% or 0%, 0%, +9%?**"):
+        st.markdown("""
+**Path 2 makes more money.** When gamma long, P&L scales with the **square** of the move.
+
+**Square each daily move and sum:**
+- Path 1: 3² + 3² + 3² = 9 + 9 + 9 = **27**
+- Path 2: 0² + 0² + 9² = 0 + 0 + 81 = **81**
+
+Path 2 is **3× more profitable** despite having the same total move (9%).
+
+This is the key insight: gamma P&L is **convex** in the move size. One large move is worth
+more than many small moves that add up to the same total. This is why gamma traders love
+jumps and hate grinding markets.
+""")
+
+    with st.expander("**Q10. Worst-of on Apple ($200) and Nokia ($5): Apple drops $20, Nokia drops $1. Which is the Worst-off?**"):
+        st.markdown("""
+**Nokia is the Worst-off.**
+
+The Worst-of is determined by **relative performance (percentage)**, not absolute dollar moves:
+- Apple: $20 / $200 = **10% drop**
+- Nokia: $1 / $5 = **20% drop**
+
+Nokia dropped more in percentage terms → Nokia is the Worst-off component.
+
+This is a common trap in interviews — the absolute dollar move is irrelevant.
+The Worst-of always compares percentage returns from the initial fixing level.
+""")
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # BONDS TAB
