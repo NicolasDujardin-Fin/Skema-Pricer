@@ -1,26 +1,29 @@
 # Skema Pricer
 
-Interactive derivatives & fixed-income pricer built with Streamlit.
+Derivatives & fixed-income pricer built with Streamlit and Plotly.
 
 ## Tabs
 
-### Options
-Black-Scholes pricing with cost-of-carry (repo). All unit and cash Greeks (delta, gamma, vega, theta, charm, vanna, rho). Gamma PnL calculator, breakeven spot/vol, theta earn move. American vs European comparison via CRR binomial tree. Six sensitivity charts showing raw delta/gamma/vega across spot (by volatility) and time (by moneyness).
+**Options** — Black-Scholes with cost-of-carry (repo). Unit and cash Greeks. Gamma PnL calculator, breakeven spot/vol, theta earn move. American vs European (CRR tree). 6 sensitivity charts (delta/gamma/vega vs spot by vol, vs time by moneyness). Interview Q&A (forwards, convexity, gamma P&L).
 
-### Bonds
-Dirty/clean price, accrued interest, Macaulay/modified duration, convexity. DV01, PV01 on notional, PnL with convexity adjustment. Callable bond pricing via lognormal binomial rate tree — option value, YTC, YTW. Interactive SVG tree visualization. Price-yield and PV waterfall charts.
+**Bonds** — Dirty/clean price, accrued interest, duration, convexity. DV01, PV01, PnL with convexity adjustment. Callable bond pricing (lognormal binomial rate tree), YTC, YTW. SVG tree visualization. Price-yield and PV waterfall charts.
 
-### Turbo Pricer
-Turbo Open-End (Long/Short) pricing. Two input modes: manual strike/barrier or target leverage (K and B auto-computed). Payoff chart with knock-out barrier. Financing cost simulation showing strike drift over time. Sensitivity table across spot scenarios.
+**Turbo Pricer** — Turbo Open-End (Long/Short). Manual strike/barrier or target leverage mode. Payoff chart, financing cost simulation (strike drift), sensitivity table.
 
-## Project structure
+**Discount Certificate** — Replication: Long S − Call(K=Cap). Payoff and P&L charts. Sensitivity vs vol and cap level. Trading Q&A (client vs trader perspective).
+
+**Bonus Certificate** — Replication: Long S + Put Down-and-Out(K=Bonus, B=Barrier) − Call(K=Cap). Reiner-Rubinstein barrier option pricing. Gap-style payoff chart. Sensitivity vs vol and time. Trading Q&A with client/trader distinction.
+
+## Structure
 
 ```
-app.py               Streamlit UI
-bs_engine.py         Black-Scholes pricing & Greeks
-bond_engine.py       Bond analytics, callable pricing, rate tree
-numerical_engine.py  American option pricing (CRR binomial)
-rates_engine.py      Forward pricing
+app.py                Streamlit UI (all tabs)
+bs_engine.py          Black-Scholes pricing & Greeks
+bond_engine.py        Bond analytics, callable pricing, rate tree
+numerical_engine.py   American option pricing (CRR binomial)
+rates_engine.py       Forward pricing
+discount_engine.py    Discount Certificate (BS call replication)
+bonus_engine.py       Bonus Certificate (Reiner-Rubinstein D&O put)
 ```
 
 ## Run
@@ -32,11 +35,13 @@ streamlit run app.py
 
 ## Key formulas
 
-- **BS cost of carry**: `b = r - q - repo`
+- **Forward**: `F = S * exp((r - q - repo) * T)`
 - **Cash delta**: `n_lots * delta * multiplier * S`
 - **Cash gamma/1%**: `n_lots * gamma * multiplier * S^2 / 100`
 - **DV01**: `modified_duration * dirty_price * 0.0001`
-- **PnL (bond)**: `(-ModDur * dy + 0.5 * Convexity * dy^2) * Price * n`
+- **Bond PnL**: `(-ModDur * dy + 0.5 * Convexity * dy^2) * Price * n`
 - **Callable bond**: lognormal binomial rate tree, issuer calls when continuation > call_price
-- **Turbo price**: `(S - K) / parity` (Long), leverage = `S / (price * parity)`
-- **American premium**: both EU and AM prices from same CRR tree (premium >= 0)
+- **American**: EU and AM prices from same CRR tree (premium >= 0)
+- **Turbo**: `price = (S - K) / parity`, `leverage = S / (price * parity)`
+- **Discount Cert**: `DC = S * exp(-qT) - Call_BS(K=Cap)`
+- **Bonus Cert**: `BC = S * exp(-qT) + Put_DO(K=Bonus, B=Barrier) - Call(K=Cap)`
