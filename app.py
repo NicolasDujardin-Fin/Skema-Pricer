@@ -1421,52 +1421,73 @@ def discount_tab():
     st.markdown("")
     _section("Trading Q&A — Discount Certificates")
 
-    with st.expander("**Q1. Are you long or short volatility when you buy a Discount Certificate?**"):
+    st.caption("Replication: DC = Long Stock − Call(K=Cap). "
+               "**Client** buys the cert (Long S, Short Call). "
+               "**Trader** sells the cert and hedges (Short S, Long Call).")
+
+    with st.expander("**Q1. As a client, are you long or short volatility?**"):
         st.markdown("""
-**Short volatility.** You are short a call (strike = cap). When vol rises, that call becomes more
-expensive → your short position loses → the certificate price drops. The discount widens, but if
-you already own it, you have a mark-to-market loss. As a buyer, you want vol to stay low or decrease.
+**Short volatility.** The client is short a call (strike = cap). When vol rises, that call becomes
+more expensive → the client's short position loses → the certificate drops in value. The client wants
+vol to stay low or decrease.
+
+**The trader (issuer) is the opposite: long volatility** via the long call in their hedge. If vol
+rises, the trader's long call gains value — but this is offset by the certificate liability. The
+trader is delta-hedging, so the vol exposure depends on how well they manage the hedge.
 """)
 
     with st.expander("**Q2. How is a Discount Certificate different from a covered call?**"):
         st.markdown("""
-**It's economically identical.** A covered call = Long Stock + Short Call(K). A Discount Certificate
-replicates as Long Stock − Call(K=Cap). Same payoff. The only difference is packaging: the certificate
-is a single security (often with parity > 1), while the covered call is two legs you manage yourself.
-The certificate may include issuer margin and credit risk.
+**Economically identical for the client.** A covered call = Long Stock + Short Call(K). Same payoff
+as the Discount Certificate. The difference is packaging: the certificate is a single security,
+while the covered call is two legs.
+
+**For the trader**, selling a Discount Certificate is like buying back a covered call from the client.
+The trader ends up Long Call + Short Stock (after hedging), which they then delta-hedge dynamically.
 """)
 
-    with st.expander("**Q3. Where are you gamma long / gamma short?**"):
+    with st.expander("**Q3. As a trader, where are you gamma long / gamma short?**"):
         st.markdown("""
-**Gamma short everywhere**, because you are short a call. Gamma is most negative near the cap (strike
-of the short call) and near expiry. This means adverse spot moves hurt more than favorable ones —
-the classic short-gamma profile. If the stock drops sharply, your delta was too high; if it rallies,
-your gains are capped.
+**The trader is gamma LONG** (from the long call in their hedge).
+
+The client is gamma short (short call). But the trader, having sold the cert and hedged with a
+long call, has **positive gamma** — meaning spot moves in either direction generate mark-to-market
+gains (before theta cost). Gamma is largest near the cap strike and near expiry.
+
+The trader **pays theta** for this gamma — the long call decays. This is the classic long-gamma
+/ short-theta profile.
 """)
 
     with st.expander("**Q4. When does holding the stock outperform the Discount Certificate?**"):
         st.markdown("""
 **When the stock rallies well above the cap.** The certificate payoff is capped at Cap, so any upside
-beyond that is lost. The breakeven where the stock starts outperforming is exactly S_T = Cap.
-Below the cap, the certificate always outperforms because you bought it at a discount. In a flat
-or moderately bullish market, the certificate wins; in a strong rally, the stock wins.
+beyond that is lost. Below the cap, the certificate always outperforms because the client bought at
+a discount.
+
+For the **trader**: a rally above the cap is favorable — the long call in the hedge pays off, and
+the certificate liability is capped. The trader's risk is a drop in the stock (short stock in hedge).
 """)
 
-    with st.expander("**Q5. What is your delta at inception? How does it evolve?**"):
+    with st.expander("**Q5. What is the client's delta? What is the trader's delta?**"):
         st.markdown("""
-**Delta < 1.** You are long the stock (delta = +1) but short a call (delta = −Δ_call), so net delta
-is between 0 and 1. If the stock is well below the cap, the call is OTM and delta ≈ 1. As the stock
-approaches the cap, the call goes ITM, its delta rises, and your net delta drops toward 0. At expiry,
-delta is either 1 (below cap) or 0 (above cap) — a discontinuity that makes hedging expensive near
-the cap at expiry.
+**Client delta: between 0 and 1.** Long stock (+1) minus short call (−Δ_call). If the stock is
+well below the cap, the call is OTM → client delta ≈ 1. Near/above the cap → delta drops toward 0.
+
+**Trader delta: between −1 and 0** (before hedging). Short stock (−1) plus long call (+Δ_call).
+The trader delta-hedges by buying shares. Near the cap at expiry, both the client and trader face
+a **delta discontinuity** (jumps from ~1 to 0 or vice versa), making hedging expensive — this is
+**pin risk**.
 """)
 
-    with st.expander("**Q6. An investor asks: 'If vol is high, is it a good time to buy?' What do you say?**"):
+    with st.expander("**Q6. If vol is high, is it a good time for the client to buy?**"):
         st.markdown("""
-**Yes — high vol is favorable for the buyer.** High vol inflates the short call premium, which means
-a bigger discount (cheaper entry). You buy the certificate cheaper and your max return is higher.
-However, high vol also means larger potential drawdowns. The discount is your risk buffer — it protects
-you in moderate drops, but a crash through the discount buffer still hurts.
+**Yes — high vol is favorable for the client.** High vol inflates the call premium → bigger discount
+→ cheaper entry → higher max return. The client monetizes high vol by selling it (short call).
+
+**For the trader**: high vol means the long call in the hedge is expensive to buy. But the trader
+also received a higher certificate price from the client. The net depends on the trader's vol
+forecast vs implied vol — if the trader thinks realized vol will be lower than implied, the
+trade is profitable.
 """)
 
 
@@ -1801,92 +1822,119 @@ certificate, but the more limited your upside.
     st.markdown("")
     _section("Trading Q&A — Bonus Certificates")
 
+    st.caption("Replication: BC = Long S + Long Put D&O(K=Bonus, B=Barrier) − Call(K=Cap). "
+               "**Client** buys the cert (Long S, Long Put D&O, Short Call). "
+               "**Trader** sells the cert and hedges (Short S, Short Put D&O, Long Call).")
+
     with st.expander("**Q1. Which is more expensive: a Bonus Certificate or a Capped Bonus Certificate?**"):
         st.markdown("""
-**The uncapped Bonus Certificate is more expensive.** The capped version includes a short call
-(strike = cap) whose premium reduces the certificate price. The lower the cap, the cheaper
-the certificate — but the more limited your upside. The cap finances part of the down-and-out
-put that provides the bonus protection. Removing the cap means you pay for the full put cost
-out of the certificate price.
+**The uncapped Bonus Certificate is more expensive.**
+
+- **Client view:** the capped version includes a short call (K=Cap) — the client sells upside.
+  That call premium reduces the certificate price. Lower cap → cheaper cert → more limited upside.
+- **Trader view:** in the capped version, the trader is **long the call**. This call premium is
+  income that offsets the cost of the put D&O the trader is short. Without the cap, the trader has
+  no call income and must charge a higher price to compensate for the full put D&O exposure.
+
+The cap finances the bonus protection. No cap = the client pays for the full put D&O.
 """)
 
-    with st.expander("**Q2. As a trader hedging this product, where are you gamma long / gamma short?**"):
+    with st.expander("**Q2. As a trader (seller), where are you gamma long / gamma short?**"):
         st.markdown("""
-You hold a **Long Put Down-and-Out** and a **Short Call** (if capped).
+The trader sold the cert → the trader's hedge is: **Short S, Short Put D&O, Long Call(K=Cap).**
 
-- **Gamma long** when spot is near the bonus level (the put's strike) and far from the barrier.
-  The put behaves like a regular put here → positive gamma.
-- **Gamma short** near the cap (short call → negative gamma) and **near the barrier**.
-  Close to the barrier, the down-and-out put's gamma flips negative — as spot approaches B,
-  the put is about to die, and its delta drops sharply → large negative gamma. This is the
-  most dangerous zone to hedge.
+- **Near the cap:** the trader is **gamma long** (long call). Spot moves around the cap generate
+  mark-to-market gains. The trader pays theta for this.
+- **Far from barrier, near the bonus level:** the trader is **short the Put D&O** → **gamma short**.
+  The put behaves like a vanilla put here → negative gamma for the trader.
+- **Near the barrier:** the Put D&O's gamma flips violently. The trader (short the put) faces
+  **massive positive gamma** as the put collapses — but this is unstable and discontinuous.
+  The delta of the put swings wildly near B → hedging is extremely difficult.
+
+**The barrier zone is the most dangerous for the trader.** Gamma changes sign, delta is unstable,
+and a barrier breach causes a discrete jump in the position value.
 """)
 
-    with st.expander("**Q3. Are you long or short vega? Does it change near the barrier?**"):
+    with st.expander("**Q3. Client vs Trader: who is long vega, who is short vega?**"):
         st.markdown("""
-**It depends on where spot is relative to barrier and cap.**
+**It depends on where spot is. And client and trader are always opposite.**
 
-- **Far from barrier:** the Put D&O behaves like a vanilla put → **long vega** (higher vol =
-  more put value = higher certificate price).
-- **Near the barrier:** **short vega**. Higher vol increases the probability of hitting the
-  barrier and killing the put → the D&O put actually *loses* value when vol rises near B.
-  This vega sign flip is a key feature of barrier options.
-- **Near the cap:** the short call makes you **short vega** as well.
+**Client (long the cert):**
+- Far from barrier: **long vega** (the Put D&O gains value with higher vol)
+- Near the barrier: **short vega** (higher vol → more likely to hit barrier → put loses value)
+- Near the cap: **short vega** (short call)
 
-Net: you can be long vega in the middle, short vega at both extremes (barrier and cap).
+**Trader (short the cert):**
+- Far from barrier: **short vega** (short Put D&O loses with higher vol)
+- Near the barrier: **long vega** (the put the trader is short loses value → trader benefits)
+- Near the cap: **long vega** (long call)
+
+This **vega sign flip near the barrier** is the hallmark of barrier options. The trader can go
+from short vega to long vega just because the stock dropped 5%.
 """)
 
-    with st.expander("**Q4. If volatility increases, does the Bonus Certificate get cheaper or more expensive?**"):
+    with st.expander("**Q4. If volatility increases, does the certificate get cheaper or more expensive?**"):
         st.markdown("""
-**It depends on the barrier distance.**
+**It depends on barrier distance — and the answer is different for client and trader.**
 
-- **Barrier far away (e.g., 30% below spot):** higher vol increases the put D&O value
-  (it behaves like a vanilla put) → certificate gets **more expensive**.
-- **Barrier close (e.g., 5% below spot):** higher vol makes it much more likely the barrier
-  gets hit → the put D&O *loses* value → certificate gets **cheaper**.
+- **Barrier far (30% OTM):** Put D&O ≈ vanilla put → higher vol increases the put →
+  cert gets **more expensive** (client's long put gains, trader's short put loses).
+- **Barrier close (5% OTM):** higher vol → much more likely to knock out the put →
+  put *loses* value → cert gets **cheaper** (client loses, trader benefits).
 
-This is why the vol sensitivity chart can show a non-monotonic relationship — the certificate
-price can rise then fall as vol increases.
+The vol sensitivity chart often shows a **non-monotonic** curve: price rises with vol initially,
+then reverses as the barrier knock-out probability dominates.
+
+**For the trader**: being short vol far from barrier but long vol near barrier creates a natural
+but unstable hedge — the vol exposure flips as the stock moves.
 """)
 
-    with st.expander("**Q5. What happens to the Down-and-Out Put as spot approaches the barrier?**"):
+    with st.expander("**Q5. What happens to the trader's hedge as spot approaches the barrier?**"):
         st.markdown("""
-**It collapses toward zero** — and fast. As S → B:
-- The probability of knock-out approaches 1 → the put is almost certainly going to die.
-- Delta flips (approaches 0 from negative), gamma spikes negative, then the option dies.
-- This creates a **hedging nightmare** for the issuer: near the barrier, the Greeks are
-  unstable and discontinuous. The issuer needs to dynamically hedge a product whose delta
-  and gamma are changing violently.
+**The trader faces a hedging nightmare.** The trader is short the Put D&O. As S → B:
 
-This is why barrier options are considered exotic — not because the payoff is complex, but
-because the **Greeks near the barrier are brutal to manage**.
+- The Put D&O collapses toward zero → the trader benefits (short position gains).
+- **But:** delta swings violently. The put's delta flips from negative to near-zero → the trader
+  must rapidly unwind their stock hedge (buy back shares).
+- **Gamma is extreme and unstable.** A small move can cause huge P&L swings.
+- **At the barrier breach:** the put dies instantly → discrete jump in position value.
+  The trader goes from "short a put + hedged" to "flat" in one tick.
+
+This is why barrier options are exotic — not because of the payoff, but because the
+**Greeks near the barrier are brutal to manage**. The trader needs to pre-position for
+the barrier event, often at a cost.
 """)
 
-    with st.expander("**Q6. When does this product outperform holding the stock?**"):
+    with st.expander("**Q6. When does the Bonus Cert outperform the stock? (Client perspective)**"):
         st.markdown("""
-**In sideways or moderately bearish markets** (as long as the barrier is not breached).
+**In sideways or moderately bearish markets** (barrier intact):
 
-- If the stock ends between the barrier and the bonus level, the certificate pays the bonus
-  while the stock gives you a loss → certificate wins.
-- If the stock ends above the bonus but below the cap (or no cap), performance is similar
-  (both follow S_T), but you may have paid more for the certificate.
-- If the stock rallies hard above the cap → stock wins (you're capped).
-- If the barrier is breached → both are the same (certificate = stock).
+| Scenario | Stock P&L | Cert P&L | Winner |
+|---|---|---|---|
+| S_T < Barrier (breach) | S_T − S₀ (loss) | S_T − Cost (same loss) | Tie |
+| Barrier < S_T < Bonus | S_T − S₀ (loss) | Bonus − Cost (protected) | **Cert** |
+| Bonus < S_T < Cap | S_T − S₀ | S_T − Cost | Similar |
+| S_T > Cap | S_T − S₀ (big gain) | Cap − Cost (capped) | **Stock** |
 
-The sweet spot is: stock drops moderately but stays above the barrier.
+The sweet spot for the client: stock drops moderately but stays above the barrier.
+The worst case: stock crashes through the barrier (bonus vanishes, full downside exposure).
 """)
 
-    with st.expander("**Q7. Why is the barrier usually monitored continuously, not just at expiry?**"):
+    with st.expander("**Q7. Continuous vs discrete barrier: who benefits?**"):
         st.markdown("""
-**Continuous monitoring makes the product cheaper** (the put D&O is worth less, because
-there are more chances for it to get knocked out during the life). This benefits the issuer.
+**Continuous monitoring makes the cert cheaper** → benefits the **trader/issuer**.
 
-A discrete barrier (e.g., closing prices only) gives the put more survival probability →
-it's worth more → the certificate is more expensive to structure. Some products use discrete
-barriers, but continuous is the standard for Bonus Certificates.
+- Continuous: more chances to knock out during the life → Put D&O is worth less →
+  the cert price is lower → issuer margin is easier to extract.
+- Discrete (closing prices only): the put survives intraday breaches → it's worth more →
+  cert is more expensive to structure.
 
-For pricing, continuous = Reiner-Rubinstein closed form. Discrete = requires Monte Carlo
-or lattice adjustments (Broadie-Glasserman-Kou correction).
+**For the trader:** continuous barrier is easier to price (Reiner-Rubinstein closed form)
+but harder to hedge (barrier can be hit at any time). Discrete barrier requires Monte Carlo
+or lattice methods (Broadie-Glasserman-Kou correction) but hedging is more predictable
+(only check at close).
+
+Most Bonus Certificates use **continuous** monitoring.
 """)
 
 
