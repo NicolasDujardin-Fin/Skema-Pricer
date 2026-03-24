@@ -105,9 +105,9 @@ def bonus_certificate_price(
     r: float,
     q: float,
     sigma_put: float,
-    cap: float | None = None,
+    cap: float = None,
     parity: float = 1.0,
-    sigma_call: float | None = None,
+    sigma_call: float = None,
 ) -> dict:
     """Price a Bonus Certificate (with optional Cap).
 
@@ -196,7 +196,7 @@ def bonus_payoff_data(
     bonus: float,
     barrier: float,
     bc_price: float,
-    cap: float | None = None,
+    cap: float = None,
     parity: float = 1.0,
     n_points: int = 200,
 ) -> dict:
@@ -254,8 +254,8 @@ def bonus_payoff_data(
 
 def bc_price_across_vols(
     S: float, bonus: float, barrier: float, T: float,
-    r: float, q: float, cap: float | None, parity: float,
-    sigma_call: float | None = None,
+    r: float, q: float, cap: float, parity: float,
+    sigma_call: float = None,
     vol_min: float = 0.05, vol_max: float = 0.60, n: int = 50,
 ) -> list[dict]:
     """Sweep put vol; call vol stays fixed at sigma_call (or tracks put vol if None)."""
@@ -276,8 +276,8 @@ def bc_price_across_vols(
 
 def bc_price_across_time(
     S: float, bonus: float, barrier: float,
-    r: float, q: float, sigma_put: float, cap: float | None, parity: float,
-    sigma_call: float | None = None,
+    r: float, q: float, sigma_put: float, cap: float, parity: float,
+    sigma_call: float = None,
     t_min: float = 0.05, t_max: float = 3.0, n: int = 50,
 ) -> list[dict]:
     result = []

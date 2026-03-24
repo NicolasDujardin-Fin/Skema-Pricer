@@ -194,8 +194,8 @@ def _make_line_chart(
     lines: list[tuple[str, str, str]],
     title: str = "",
     x_label: str = "",
-    vline: float | None = None,
-    hline: float | None = None,
+    vline: float = None,
+    hline: float = None,
     height: int = 370,
     legend_below: bool = False,
 ) -> go.Figure:

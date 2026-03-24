@@ -110,8 +110,8 @@ def discount_payoff_data(
     cap: float,
     dc_price: float,
     parity: float = 1.0,
-    s_min: float | None = None,
-    s_max: float | None = None,
+    s_min: float = None,
+    s_max: float = None,
     n_points: int = 200,
 ) -> list[dict]:
     """Payoff at maturity for the DC vs holding the stock.
