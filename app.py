@@ -4,7 +4,9 @@ Bloomberg-style professional layout.
 """
 
 import datetime
+import json
 import math
+import os
 
 import numpy as np
 import pandas as pd
@@ -257,6 +259,25 @@ def _make_bar_chart(
 def _section(label: str):
     """Render a styled section header."""
     st.markdown(f'<div class="section-header">{label}</div>', unsafe_allow_html=True)
+
+
+# Load Q&A from external file
+_QUESTIONS_PATH = os.path.join(os.path.dirname(__file__), "questions.json")
+with open(_QUESTIONS_PATH, encoding="utf-8") as _f:
+    _QA_DATA = json.load(_f)
+
+
+def _render_qa(section_key: str):
+    """Render a Q&A section from questions.json."""
+    section = _QA_DATA.get(section_key)
+    if not section:
+        return
+    _section(section["title"])
+    if section.get("subtitle"):
+        st.caption(section["subtitle"])
+    for i, item in enumerate(section["questions"], 1):
+        with st.expander(f"**Q{i}. {item['q']}**"):
+            st.markdown(item["a"])
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -738,157 +759,7 @@ def options_tab():
             st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("")
-    _section("Interview Q&A — Forwards & Options")
-
-    # ── Forwards ──
-
-    with st.expander("**Q1. Is the Forward the market's price prediction of the Spot in the future?**"):
-        st.markdown("""
-**No. The Forward is the cost of replication.**
-
-If you want to own the stock in 6 months, you have two choices:
-1. Buy it in 6 months (you don't know the price).
-2. Buy it **today** at the Spot price.
-
-But buying today means you need to **borrow cash** (paying interest) and **carry the stock**
-(receiving dividends). The dividend collected reduces the cost of carry.
-
-**F = S × e^{(r − q) × T}**
-
-The Forward is not a forecast — it's an arbitrage-enforced price that reflects the cost of
-financing minus the benefit of holding.
-""")
-
-    with st.expander("**Q2. Stock XYZ's 6-month Forward trades at a 5% discount to Spot. Why?**"):
-        st.markdown("""
-**Two main reasons: high repo rate or high dividend yield.**
-
-Usually F > S because of financing costs. But when the **benefit of holding** the stock
-(dividends + repo income from lending shares) **outweighs** the cost of borrowing cash,
-the Forward is pulled below the Spot.
-
-F = S × e^{(r − q − repo) × T}
-
-If (q + repo) > r, then the exponent is negative → **F < S**.
-""")
-
-    with st.expander("**Q3. A company slashes its dividend from €4 to €2. Spot stays flat. What happens to your Call options?**"):
-        st.markdown("""
-**Call prices increase.**
-
-A call is **long the forward**. When dividends decrease, the forward price **increases**
-(less dividend drag on the carry). Higher forward → higher call value.
-
-Even though the Spot didn't move, the forward shifted up, and all call strikes benefit.
-Puts decrease for the same reason.
-""")
-
-    with st.expander("**Q4. Spot = 100, r = 5%, no dividends. The 1Y Forward trades at 110. How do you arbitrage?**"):
-        st.markdown("""
-**Cash-and-Carry Arbitrage.** Fair Forward = 100 × (1 + 5%) = **105**. At 110, the Forward
-is overpriced by 5.
-
-**Execution:**
-1. **Borrow** €100 at 5% for 1 year.
-2. **Buy** the stock at 100.
-3. **Sell** the 1Y Forward at 110.
-
-**At maturity:**
-- Deliver the stock via the Forward → receive 110.
-- Repay the loan → pay 105.
-- **Risk-free profit = 5.**
-""")
-
-    with st.expander("**Q5. You buy a 1Y Forward. A €5 dividend is paid at 6 months as expected. Spot drops by €5. Does your Forward price change?**"):
-        st.markdown("""
-**No.** The Forward price remains unchanged (assuming no other market moves).
-
-The dividend was already **priced into** the Forward at inception. When the stock goes
-ex-dividend:
-- Spot drops by €5 (expected).
-- But q (the dividend yield) is also gone — it no longer drags the Forward.
-
-These two effects **exactly offset**. There is no P&L impact at the moment of payment.
-""")
-
-    with st.expander("**Q6. Same setup, but the company surprises with a €6 dividend instead of the expected €5. What happens?**"):
-        st.markdown("""
-**The Forward drops by approximately €1** (the unexpected portion).
-
-- At T₀, the Forward was built pricing in €5 of dividends.
-- The Spot drops by €6 (the actual dividend).
-- But the Forward only had "protection" for €5.
-- The extra €1 drop is **new information** that wasn't hedged.
-
-The Forward must adjust down by the **surprise component** (€6 − €5 = €1).
-This is why unexpected dividend changes create P&L on forward/option positions.
-""")
-
-    # ── Options Pricing ──
-
-    with st.expander("**Q7. Vol = 20%, Spot = 100. Which is cheaper: a 3M ATM straddle or a 1Y ATM call?**"):
-        st.markdown("""
-**They cost the same ≈ 8.**
-
-Using the ATM approximation:
-- **Straddle (3M)** = 0.8 × S × σ × √T = 0.8 × 100 × 0.20 × √0.25 = 0.8 × 100 × 0.20 × 0.5 = **8**
-- **ATM Call (1Y)** = 0.4 × S × σ × √T = 0.4 × 100 × 0.20 × 1.0 = **8**
-
-Note: a straddle = call + put, and the ATM approximation gives Straddle ≈ 0.8 × S × σ × √T,
-while a single ATM call ≈ 0.4 × S × σ × √T. The straddle's shorter maturity compensates for
-having two legs.
-""")
-
-    with st.expander("**Q8. Which is more expensive: 1 Call strike 100 or 2 Calls strike 200?**"):
-        st.markdown("""
-**1 Call strike 100 is more expensive**, because of **gamma convexity**.
-
-Talking about convexity abstractly doesn't help — here's a concrete example.
-Assume 3 equally likely outcomes: Spot = 100, 200, or 300.
-
-| Scenario | 1 × Call(K=100) | 1 × Call(K=200) |
-|---|---|---|
-| S_T = 100 | 0 | 0 |
-| S_T = 200 | 100 | 0 |
-| S_T = 300 | 200 | 100 |
-| **Average** | **300 / 3 = 100** | **100 / 3 = 33** |
-
-So 2 × Call(K=200) = 2 × 33 = **66**.
-
-**1 Call(K=100) = 100 > 66 = 2 Calls(K=200).**
-
-The lower-strike call benefits more from large moves because its payoff is **linear in S**
-over a wider range. This is the convexity advantage.
-""")
-
-    with st.expander("**Q9. You are gamma long, delta hedged. Which path makes more money: +3%, +3%, +3% or 0%, 0%, +9%?**"):
-        st.markdown("""
-**Path 2 makes more money.** When gamma long, P&L scales with the **square** of the move.
-
-**Square each daily move and sum:**
-- Path 1: 3² + 3² + 3² = 9 + 9 + 9 = **27**
-- Path 2: 0² + 0² + 9² = 0 + 0 + 81 = **81**
-
-Path 2 is **3× more profitable** despite having the same total move (9%).
-
-This is the key insight: gamma P&L is **convex** in the move size. One large move is worth
-more than many small moves that add up to the same total. This is why gamma traders love
-jumps and hate grinding markets.
-""")
-
-    with st.expander("**Q10. Worst-of on Apple ($200) and Nokia ($5): Apple drops $20, Nokia drops $1. Which is the Worst-off?**"):
-        st.markdown("""
-**Nokia is the Worst-off.**
-
-The Worst-of is determined by **relative performance (percentage)**, not absolute dollar moves:
-- Apple: $20 / $200 = **10% drop**
-- Nokia: $1 / $5 = **20% drop**
-
-Nokia dropped more in percentage terms → Nokia is the Worst-off component.
-
-This is a common trap in interviews — the absolute dollar move is irrelevant.
-The Worst-of always compares percentage returns from the initial fixing level.
-""")
+    _render_qa("options")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1572,76 +1443,7 @@ def discount_tab():
             st.error("Error computing cap sensitivity")
 
     st.markdown("")
-    _section("Trading Q&A — Discount Certificates")
-
-    st.caption("Replication: DC = Long Stock − Call(K=Cap). "
-               "**Client** buys the cert (Long S, Short Call). "
-               "**Trader** sells the cert and hedges (Short S, Long Call).")
-
-    with st.expander("**Q1. As a client, are you long or short volatility?**"):
-        st.markdown("""
-**Short volatility.** The client is short a call (strike = cap). When vol rises, that call becomes
-more expensive → the client's short position loses → the certificate drops in value. The client wants
-vol to stay low or decrease.
-
-**The trader (issuer) is the opposite: long volatility** via the long call in their hedge. If vol
-rises, the trader's long call gains value — but this is offset by the certificate liability. The
-trader is delta-hedging, so the vol exposure depends on how well they manage the hedge.
-""")
-
-    with st.expander("**Q2. How is a Discount Certificate different from a covered call?**"):
-        st.markdown("""
-**Economically identical for the client.** A covered call = Long Stock + Short Call(K). Same payoff
-as the Discount Certificate. The difference is packaging: the certificate is a single security,
-while the covered call is two legs.
-
-**For the trader**, selling a Discount Certificate is like buying back a covered call from the client.
-The trader ends up Long Call + Short Stock (after hedging), which they then delta-hedge dynamically.
-""")
-
-    with st.expander("**Q3. As a trader, where are you gamma long / gamma short?**"):
-        st.markdown("""
-**The trader is gamma LONG** (from the long call in their hedge).
-
-The client is gamma short (short call). But the trader, having sold the cert and hedged with a
-long call, has **positive gamma** — meaning spot moves in either direction generate mark-to-market
-gains (before theta cost). Gamma is largest near the cap strike and near expiry.
-
-The trader **pays theta** for this gamma — the long call decays. This is the classic long-gamma
-/ short-theta profile.
-""")
-
-    with st.expander("**Q4. When does holding the stock outperform the Discount Certificate?**"):
-        st.markdown("""
-**When the stock rallies well above the cap.** The certificate payoff is capped at Cap, so any upside
-beyond that is lost. Below the cap, the certificate always outperforms because the client bought at
-a discount.
-
-For the **trader**: a rally above the cap is favorable — the long call in the hedge pays off, and
-the certificate liability is capped. The trader's risk is a drop in the stock (short stock in hedge).
-""")
-
-    with st.expander("**Q5. What is the client's delta? What is the trader's delta?**"):
-        st.markdown("""
-**Client delta: between 0 and 1.** Long stock (+1) minus short call (−Δ_call). If the stock is
-well below the cap, the call is OTM → client delta ≈ 1. Near/above the cap → delta drops toward 0.
-
-**Trader delta: between −1 and 0** (before hedging). Short stock (−1) plus long call (+Δ_call).
-The trader delta-hedges by buying shares. Near the cap at expiry, both the client and trader face
-a **delta discontinuity** (jumps from ~1 to 0 or vice versa), making hedging expensive — this is
-**pin risk**.
-""")
-
-    with st.expander("**Q6. If vol is high, is it a good time for the client to buy?**"):
-        st.markdown("""
-**Yes — high vol is favorable for the client.** High vol inflates the call premium → bigger discount
-→ cheaper entry → higher max return. The client monetizes high vol by selling it (short call).
-
-**For the trader**: high vol means the long call in the hedge is expensive to buy. But the trader
-also received a higher certificate price from the client. The net depends on the trader's vol
-forecast vs implied vol — if the trader thinks realized vol will be lower than implied, the
-trade is profitable.
-""")
+    _render_qa("discount_cert")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1973,122 +1775,7 @@ certificate, but the more limited your upside.
             st.error("Error computing time sensitivity")
 
     st.markdown("")
-    _section("Trading Q&A — Bonus Certificates")
-
-    st.caption("Replication: BC = Long S + Long Put D&O(K=Bonus, B=Barrier) − Call(K=Cap). "
-               "**Client** buys the cert (Long S, Long Put D&O, Short Call). "
-               "**Trader** sells the cert and hedges (Short S, Short Put D&O, Long Call).")
-
-    with st.expander("**Q1. Which is more expensive: a Bonus Certificate or a Capped Bonus Certificate?**"):
-        st.markdown("""
-**The uncapped Bonus Certificate is more expensive.**
-
-- **Client view:** the capped version includes a short call (K=Cap) — the client sells upside.
-  That call premium reduces the certificate price. Lower cap → cheaper cert → more limited upside.
-- **Trader view:** in the capped version, the trader is **long the call**. This call premium is
-  income that offsets the cost of the put D&O the trader is short. Without the cap, the trader has
-  no call income and must charge a higher price to compensate for the full put D&O exposure.
-
-The cap finances the bonus protection. No cap = the client pays for the full put D&O.
-""")
-
-    with st.expander("**Q2. As a trader (seller), where are you gamma long / gamma short?**"):
-        st.markdown("""
-The trader sold the cert → the trader's hedge is: **Short S, Short Put D&O, Long Call(K=Cap).**
-
-- **Near the cap:** the trader is **gamma long** (long call). Spot moves around the cap generate
-  mark-to-market gains. The trader pays theta for this.
-- **Far from barrier, near the bonus level:** the trader is **short the Put D&O** → **gamma short**.
-  The put behaves like a vanilla put here → negative gamma for the trader.
-- **Near the barrier:** the Put D&O's gamma flips violently. The trader (short the put) faces
-  **massive positive gamma** as the put collapses — but this is unstable and discontinuous.
-  The delta of the put swings wildly near B → hedging is extremely difficult.
-
-**The barrier zone is the most dangerous for the trader.** Gamma changes sign, delta is unstable,
-and a barrier breach causes a discrete jump in the position value.
-""")
-
-    with st.expander("**Q3. Client vs Trader: who is long vega, who is short vega?**"):
-        st.markdown("""
-**It depends on where spot is. And client and trader are always opposite.**
-
-**Client (long the cert):**
-- Far from barrier: **long vega** (the Put D&O gains value with higher vol)
-- Near the barrier: **short vega** (higher vol → more likely to hit barrier → put loses value)
-- Near the cap: **short vega** (short call)
-
-**Trader (short the cert):**
-- Far from barrier: **short vega** (short Put D&O loses with higher vol)
-- Near the barrier: **long vega** (the put the trader is short loses value → trader benefits)
-- Near the cap: **long vega** (long call)
-
-This **vega sign flip near the barrier** is the hallmark of barrier options. The trader can go
-from short vega to long vega just because the stock dropped 5%.
-""")
-
-    with st.expander("**Q4. If volatility increases, does the certificate get cheaper or more expensive?**"):
-        st.markdown("""
-**It depends on barrier distance — and the answer is different for client and trader.**
-
-- **Barrier far (30% OTM):** Put D&O ≈ vanilla put → higher vol increases the put →
-  cert gets **more expensive** (client's long put gains, trader's short put loses).
-- **Barrier close (5% OTM):** higher vol → much more likely to knock out the put →
-  put *loses* value → cert gets **cheaper** (client loses, trader benefits).
-
-The vol sensitivity chart often shows a **non-monotonic** curve: price rises with vol initially,
-then reverses as the barrier knock-out probability dominates.
-
-**For the trader**: being short vol far from barrier but long vol near barrier creates a natural
-but unstable hedge — the vol exposure flips as the stock moves.
-""")
-
-    with st.expander("**Q5. What happens to the trader's hedge as spot approaches the barrier?**"):
-        st.markdown("""
-**The trader faces a hedging nightmare.** The trader is short the Put D&O. As S → B:
-
-- The Put D&O collapses toward zero → the trader benefits (short position gains).
-- **But:** delta swings violently. The put's delta flips from negative to near-zero → the trader
-  must rapidly unwind their stock hedge (buy back shares).
-- **Gamma is extreme and unstable.** A small move can cause huge P&L swings.
-- **At the barrier breach:** the put dies instantly → discrete jump in position value.
-  The trader goes from "short a put + hedged" to "flat" in one tick.
-
-This is why barrier options are exotic — not because of the payoff, but because the
-**Greeks near the barrier are brutal to manage**. The trader needs to pre-position for
-the barrier event, often at a cost.
-""")
-
-    with st.expander("**Q6. When does the Bonus Cert outperform the stock? (Client perspective)**"):
-        st.markdown("""
-**In sideways or moderately bearish markets** (barrier intact):
-
-| Scenario | Stock P&L | Cert P&L | Winner |
-|---|---|---|---|
-| S_T < Barrier (breach) | S_T − S₀ (loss) | S_T − Cost (same loss) | Tie |
-| Barrier < S_T < Bonus | S_T − S₀ (loss) | Bonus − Cost (protected) | **Cert** |
-| Bonus < S_T < Cap | S_T − S₀ | S_T − Cost | Similar |
-| S_T > Cap | S_T − S₀ (big gain) | Cap − Cost (capped) | **Stock** |
-
-The sweet spot for the client: stock drops moderately but stays above the barrier.
-The worst case: stock crashes through the barrier (bonus vanishes, full downside exposure).
-""")
-
-    with st.expander("**Q7. Continuous vs discrete barrier: who benefits?**"):
-        st.markdown("""
-**Continuous monitoring makes the cert cheaper** → benefits the **trader/issuer**.
-
-- Continuous: more chances to knock out during the life → Put D&O is worth less →
-  the cert price is lower → issuer margin is easier to extract.
-- Discrete (closing prices only): the put survives intraday breaches → it's worth more →
-  cert is more expensive to structure.
-
-**For the trader:** continuous barrier is easier to price (Reiner-Rubinstein closed form)
-but harder to hedge (barrier can be hit at any time). Discrete barrier requires Monte Carlo
-or lattice methods (Broadie-Glasserman-Kou correction) but hedging is more predictable
-(only check at close).
-
-Most Bonus Certificates use **continuous** monitoring.
-""")
+    _render_qa("bonus_cert")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
