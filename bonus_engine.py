@@ -104,9 +104,10 @@ def bonus_certificate_price(
     T: float,
     r: float,
     q: float,
-    sigma: float,
+    sigma_put: float,
     cap: float | None = None,
     parity: float = 1.0,
+    sigma_call: float | None = None,
 ) -> dict:
     """Price a Bonus Certificate (with optional Cap).
 
@@ -121,9 +122,11 @@ def bonus_certificate_price(
     T : float        Time to maturity (years).
     r : float        Risk-free rate (decimal).
     q : float        Dividend yield (decimal).
-    sigma : float    Volatility (decimal).
+    sigma_put : float  Volatility for the Put D&O (at strike = Bonus).
     cap : float      Optional cap level (None = no cap).
     parity : float   Certificates per unit of underlying.
+    sigma_call : float  Volatility for the Call (at strike = Cap).
+                        If None, defaults to sigma_put.
 
     Returns
     -------
@@ -132,14 +135,17 @@ def bonus_certificate_price(
         discount_pct, bonus_return_pct, max_payoff, breakeven,
         barrier_distance_pct
     """
+    if sigma_call is None:
+        sigma_call = sigma_put
+
     underlying_pv = S * np.exp(-q * T)
-    put_do = _down_and_out_put(S, bonus, barrier, T, r, q, sigma)
+    put_do = _down_and_out_put(S, bonus, barrier, T, r, q, sigma_put)
 
     # Optional short call for the cap
     call_cap = 0.0
     if cap is not None and cap > 0:
         from discount_engine import _bs_call
-        call_cap = _bs_call(S, cap, T, r, q, sigma)
+        call_cap = _bs_call(S, cap, T, r, q, sigma_call)
 
     bc_total = underlying_pv + put_do - call_cap
     bc_price = bc_total / parity
@@ -249,12 +255,16 @@ def bonus_payoff_data(
 def bc_price_across_vols(
     S: float, bonus: float, barrier: float, T: float,
     r: float, q: float, cap: float | None, parity: float,
+    sigma_call: float | None = None,
     vol_min: float = 0.05, vol_max: float = 0.60, n: int = 50,
 ) -> list[dict]:
+    """Sweep put vol; call vol stays fixed at sigma_call (or tracks put vol if None)."""
     result = []
     for v in np.linspace(vol_min, vol_max, n):
         v = float(v)
-        res = bonus_certificate_price(S, bonus, barrier, T, r, q, v, cap, parity)
+        sc = sigma_call if sigma_call is not None else v
+        res = bonus_certificate_price(S, bonus, barrier, T, r, q, v, cap, parity,
+                                       sigma_call=sc)
         result.append({
             "vol": round(v * 100, 1),
             "bc_price": round(res["bc_price"], 4),
@@ -266,13 +276,16 @@ def bc_price_across_vols(
 
 def bc_price_across_time(
     S: float, bonus: float, barrier: float,
-    r: float, q: float, sigma: float, cap: float | None, parity: float,
+    r: float, q: float, sigma_put: float, cap: float | None, parity: float,
+    sigma_call: float | None = None,
     t_min: float = 0.05, t_max: float = 3.0, n: int = 50,
 ) -> list[dict]:
     result = []
+    sc = sigma_call if sigma_call is not None else sigma_put
     for t in np.linspace(t_min, t_max, n):
         t = max(0.01, float(t))
-        res = bonus_certificate_price(S, bonus, barrier, t, r, q, sigma, cap, parity)
+        res = bonus_certificate_price(S, bonus, barrier, t, r, q, sigma_put, cap, parity,
+                                       sigma_call=sc)
         result.append({
             "time": round(t, 2),
             "bc_price": round(res["bc_price"], 4),

@@ -1490,11 +1490,15 @@ def bonus_tab():
             st.caption(f"→ Bonus={bc_bonus:.2f}  Barrier={bc_barrier:.2f}"
                        + (f"  Cap={bc_cap:.2f}" if bc_cap else ""))
 
-        b1, b2 = st.columns(2)
-        bc_T = b1.number_input("Mat. (y)", value=1.0, step=0.25,
+        bc_T = st.number_input("Mat. (y)", value=1.0, step=0.25,
                                 format="%.2f", min_value=0.01, key="bc_t")
-        bc_sigma = max(0.001, b2.number_input("Vol %", value=20.0, step=0.5,
-                                                format="%.1f", key="bc_sig") / 100)
+
+        st.caption("Volatility (skew)")
+        bv1, bv2 = st.columns(2)
+        bc_sigma_put = max(0.001, bv1.number_input("Put vol %", value=22.0, step=0.5,
+                                                     format="%.1f", key="bc_sig_p") / 100)
+        bc_sigma_call = max(0.001, bv2.number_input("Call vol %", value=18.0, step=0.5,
+                                                      format="%.1f", key="bc_sig_c") / 100)
 
         b3, b4 = st.columns(2)
         bc_r = b3.number_input("r %", value=5.0, step=0.1,
@@ -1508,7 +1512,8 @@ def bonus_tab():
     # ── Compute ──
     try:
         res = bonus_certificate_price(bc_S, bc_bonus, bc_barrier, bc_T,
-                                       bc_r, bc_q, bc_sigma, bc_cap, bc_parity)
+                                       bc_r, bc_q, bc_sigma_put, bc_cap, bc_parity,
+                                       sigma_call=bc_sigma_call)
     except Exception:
         res = {"bc_price": 0, "put_do_price": 0, "underlying_pv": 0,
                "call_cap_price": 0, "discount_pct": 0, "bonus_return_pct": 0,
@@ -1711,7 +1716,8 @@ certificate, but the more limited your upside.
     with sc1:
         try:
             vol_data = bc_price_across_vols(bc_S, bc_bonus, bc_barrier, bc_T,
-                                             bc_r, bc_q, bc_cap, bc_parity)
+                                             bc_r, bc_q, bc_cap, bc_parity,
+                                             sigma_call=bc_sigma_call)
             fig_v = go.Figure()
             fig_v.add_trace(go.Scatter(
                 x=[d["vol"] for d in vol_data],
@@ -1746,7 +1752,8 @@ certificate, but the more limited your upside.
     with sc2:
         try:
             time_data = bc_price_across_time(bc_S, bc_bonus, bc_barrier,
-                                              bc_r, bc_q, bc_sigma, bc_cap, bc_parity)
+                                              bc_r, bc_q, bc_sigma_put, bc_cap, bc_parity,
+                                              sigma_call=bc_sigma_call)
             fig_t = go.Figure()
             fig_t.add_trace(go.Scatter(
                 x=[d["time"] for d in time_data],
