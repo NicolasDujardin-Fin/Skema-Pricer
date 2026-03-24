@@ -284,6 +284,7 @@ def _render_qa(section_key: str):
 # COMPUTE HELPERS (shared between vol / maturity axis)
 # ═══════════════════════════════════════════════════════════════════════════
 
+@st.cache_data(show_spinner=False)
 def _compute_greeks_across_vols(S, K, T, r, q, repo, n_lots, multiplier, option_type):
     data = []
     for sv in np.linspace(0.05, 0.60, 31):
@@ -313,6 +314,7 @@ def _compute_greeks_across_vols(S, K, T, r, q, repo, n_lots, multiplier, option_
     return data
 
 
+@st.cache_data(show_spinner=False)
 def _compute_greeks_across_mats(S, K, r, q, repo, sigma, n_lots, multiplier, option_type):
     data = []
     for Tm in [i / 12.0 for i in range(1, 37)]:
@@ -340,6 +342,106 @@ def _compute_greeks_across_mats(S, K, r, q, repo, sigma, n_lots, multiplier, opt
             "cash_rho": round((pu - pd_) / (2 * dr) * n_lots * multiplier / 100, 2),
         })
     return data
+
+
+@st.cache_data(show_spinner=False)
+def _cached_callable_yield_curve(face, coupon, mat, freq, call_price, first_call, rate_vol):
+    return callable_bond_yield_curve(face, coupon, mat, freq, call_price, first_call, rate_vol)
+
+
+@st.cache_data(show_spinner=False)
+def _cached_bond_yield_curve(face, coupon, mat, freq):
+    return bond_price_yield_curve(face, coupon, mat, freq)
+
+
+@st.cache_data(show_spinner=False)
+def _cached_dc_vols(S, cap, T, r, q, parity):
+    return dc_price_across_vols(S, cap, T, r, q, parity)
+
+
+@st.cache_data(show_spinner=False)
+def _cached_dc_caps(S, T, r, q, sigma, parity):
+    return dc_price_across_caps(S, T, r, q, sigma, parity)
+
+
+@st.cache_data(show_spinner=False)
+def _cached_bc_vols(S, bonus, barrier, T, r, q, cap, parity, sigma_call):
+    return bc_price_across_vols(S, bonus, barrier, T, r, q, cap, parity, sigma_call=sigma_call)
+
+
+@st.cache_data(show_spinner=False)
+def _cached_bc_time(S, bonus, barrier, r, q, sigma_put, cap, parity, sigma_call):
+    return bc_price_across_time(S, bonus, barrier, r, q, sigma_put, cap, parity, sigma_call=sigma_call)
+
+
+@st.cache_data(show_spinner=False)
+def _raw_greeks_spot_vol(S, K, T, r, q, repo, option_type, S_min, S_max):
+    """Delta, Gamma, Vega vs Spot for 3 different vols."""
+    vols = [0.10, 0.20, 0.40]
+    spots = np.linspace(S_min, S_max, 51)
+    data = []
+    for s in spots:
+        row = {"spot": round(float(s), 2)}
+        for sv in vols:
+            g = bs_greeks(float(s), K, T, r, q, repo, sv, option_type)
+            tag = f"{int(sv*100)}%"
+            row[f"delta_{tag}"] = round(g["delta"], 6)
+            row[f"gamma_{tag}"] = round(g["gamma"], 6)
+            row[f"vega_{tag}"] = round(g["vega"], 6)
+        data.append(row)
+    return data, vols
+
+
+@st.cache_data(show_spinner=False)
+def _raw_greeks_time(S, K, T_max, r, q, repo, sigma, option_type):
+    """Delta, Gamma, Vega vs Time for OTM / ATM / ITM."""
+    moneyness = [
+        (round(K * 0.90, 2), "OTM"),
+        (round(K * 1.00, 2), "ATM"),
+        (round(K * 1.10, 2), "ITM"),
+    ] if option_type == "call" else [
+        (round(K * 1.10, 2), "OTM"),
+        (round(K * 1.00, 2), "ATM"),
+        (round(K * 0.90, 2), "ITM"),
+    ]
+    times = np.linspace(0.02, min(T_max, 3.0), 51)
+    data = []
+    for t in times:
+        t = max(0.001, float(t))
+        row = {"time": round(t, 3)}
+        for spot, tag in moneyness:
+            g = bs_greeks(spot, K, t, r, q, repo, sigma, option_type)
+            row[f"delta_{tag}"] = round(g["delta"], 6)
+            row[f"gamma_{tag}"] = round(g["gamma"], 6)
+            row[f"vega_{tag}"] = round(g["vega"], 6)
+        data.append(row)
+    return data, moneyness
+
+
+@st.cache_data(show_spinner=False)
+def _compute_spot_ladder(S_min, S_max, K, T, r, q, repo, sigma, n_lots, multiplier, option_type):
+    """Compute enriched spot ladder with all cash Greeks."""
+    spot_data = cash_delta_spot_ladder(
+        S_min, S_max, 21, K, T, r, q, repo, sigma, n_lots, multiplier,
+    )
+    for row in spot_data:
+        Ss = row["spot"]
+        gs = bs_greeks(Ss, K, T, r, q, repo, sigma, option_type)
+        row["cash_gamma"] = n_lots * gs["gamma"] * multiplier * Ss ** 2 / 100
+        row["cash_theta"] = n_lots * gs["theta"] * multiplier
+        row["cash_vega"] = n_lots * gs["vega"] * multiplier
+        T1s = max(0.001, T - 1 / 365)
+        gs1 = bs_greeks(Ss, K, T1s, r, q, repo, sigma, option_type)
+        row["cash_charm"] = (gs1["delta"] - gs["delta"]) * n_lots * multiplier * Ss
+        dss = 0.001
+        d_ups = bs_greeks(Ss, K, T, r, q, repo, sigma + dss, option_type)["delta"]
+        d_dns = bs_greeks(Ss, K, T, r, q, repo, max(0.001, sigma - dss), option_type)["delta"]
+        row["cash_vanna"] = (d_ups - d_dns) / (2 * dss) * n_lots * multiplier * Ss / 100
+        drs = 0.001
+        p_ups = bs_price(Ss, K, T, r + drs, q, repo, sigma, option_type)
+        p_dns = bs_price(Ss, K, T, r - drs, q, repo, sigma, option_type)
+        row["cash_rho"] = (p_ups - p_dns) / (2 * drs) * n_lots * multiplier / 100
+    return spot_data
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -561,26 +663,8 @@ def options_tab():
     S_min, S_max = round(center - half, 4), round(center + half, 4)
 
     try:
-        spot_data = cash_delta_spot_ladder(
-            S_min, S_max, 21, K, T, r, q, repo, sigma, n_lots, multiplier,
-        )
-        for row in spot_data:
-            Ss = row["spot"]
-            gs = bs_greeks(Ss, K, T, r, q, repo, sigma, option_type)
-            row["cash_gamma"] = n_lots * gs["gamma"] * multiplier * Ss ** 2 / 100
-            row["cash_theta"] = n_lots * gs["theta"] * multiplier
-            row["cash_vega"] = n_lots * gs["vega"] * multiplier
-            T1s = max(0.001, T - 1 / 365)
-            gs1 = bs_greeks(Ss, K, T1s, r, q, repo, sigma, option_type)
-            row["cash_charm"] = (gs1["delta"] - gs["delta"]) * n_lots * multiplier * Ss
-            dss = 0.001
-            d_ups = bs_greeks(Ss, K, T, r, q, repo, sigma + dss, option_type)["delta"]
-            d_dns = bs_greeks(Ss, K, T, r, q, repo, max(0.001, sigma - dss), option_type)["delta"]
-            row["cash_vanna"] = (d_ups - d_dns) / (2 * dss) * n_lots * multiplier * Ss / 100
-            drs = 0.001
-            p_ups = bs_price(Ss, K, T, r + drs, q, repo, sigma, option_type)
-            p_dns = bs_price(Ss, K, T, r - drs, q, repo, sigma, option_type)
-            row["cash_rho"] = (p_ups - p_dns) / (2 * drs) * n_lots * multiplier / 100
+        spot_data = _compute_spot_ladder(S_min, S_max, K, T, r, q, repo, sigma,
+                                          n_lots, multiplier, option_type)
     except Exception:
         spot_data = []
 
@@ -641,48 +725,6 @@ def options_tab():
     # ── RAW GREEKS: Impact of Vol & Time on Delta, Gamma, Vega ──
     st.markdown("")
     _section("Unit Greeks Sensitivity — Impact of Volatility & Time to Maturity")
-
-    # Compute raw greeks across spots for multiple vols
-    def _raw_greeks_spot_vol(S, K, T, r, q, repo, option_type, S_min, S_max):
-        """Delta, Gamma, Vega vs Spot for 3 different vols."""
-        vols = [0.10, 0.20, 0.40]
-        spots = np.linspace(S_min, S_max, 51)
-        data = []
-        for s in spots:
-            row = {"spot": round(float(s), 2)}
-            for sv in vols:
-                g = bs_greeks(float(s), K, T, r, q, repo, sv, option_type)
-                tag = f"{int(sv*100)}%"
-                row[f"delta_{tag}"] = round(g["delta"], 6)
-                row[f"gamma_{tag}"] = round(g["gamma"], 6)
-                row[f"vega_{tag}"] = round(g["vega"], 6)
-            data.append(row)
-        return data, vols
-
-    # Compute raw greeks across time for 3 moneyness levels
-    def _raw_greeks_time(S, K, T_max, r, q, repo, sigma, option_type):
-        """Delta, Gamma, Vega vs Time for OTM / ATM / ITM."""
-        moneyness = [
-            (round(K * 0.90, 2), "OTM"),
-            (round(K * 1.00, 2), "ATM"),
-            (round(K * 1.10, 2), "ITM"),
-        ] if option_type == "call" else [
-            (round(K * 1.10, 2), "OTM"),
-            (round(K * 1.00, 2), "ATM"),
-            (round(K * 0.90, 2), "ITM"),
-        ]
-        times = np.linspace(0.02, min(T_max, 3.0), 51)
-        data = []
-        for t in times:
-            t = max(0.001, float(t))
-            row = {"time": round(t, 3)}
-            for spot, tag in moneyness:
-                g = bs_greeks(spot, K, t, r, q, repo, sigma, option_type)
-                row[f"delta_{tag}"] = round(g["delta"], 6)
-                row[f"gamma_{tag}"] = round(g["gamma"], 6)
-                row[f"vega_{tag}"] = round(g["vega"], 6)
-            data.append(row)
-        return data, moneyness
 
     try:
         raw_sv_data, vols_used = _raw_greeks_spot_vol(S, K, T, r, q, repo, option_type, S_min, S_max)
@@ -938,14 +980,14 @@ def bonds_tab():
     with ch1:
         try:
             if bond_callable:
-                yc_data = callable_bond_yield_curve(
+                yc_data = _cached_callable_yield_curve(
                     bond_face, bond_coupon, effective_mat, bond_freq,
                     bond_call_price, min(bond_first_call, effective_mat), bond_rate_vol,
                 )
                 lines = [("straight", "Straight", "#3182ce"),
                          ("callable", "Callable", "#e53e3e")]
             else:
-                raw = bond_price_yield_curve(bond_face, bond_coupon, effective_mat, bond_freq)
+                raw = _cached_bond_yield_curve(bond_face, bond_coupon, effective_mat, bond_freq)
                 yc_data = [{"ytm": d["ytm"], "straight": d["price"]} for d in raw]
                 lines = [("straight", "Straight", "#3182ce")]
 
@@ -1366,7 +1408,7 @@ def discount_tab():
 
     with sc1:
         try:
-            vol_data = dc_price_across_vols(dc_S, dc_cap, dc_T, dc_r, dc_q,
+            vol_data = _cached_dc_vols(dc_S, dc_cap, dc_T, dc_r, dc_q,
                                              dc_parity)
             fig_vol = go.Figure()
             fig_vol.add_trace(go.Scatter(
@@ -1405,7 +1447,7 @@ def discount_tab():
 
     with sc2:
         try:
-            cap_data = dc_price_across_caps(dc_S, dc_T, dc_r, dc_q,
+            cap_data = _cached_dc_caps(dc_S, dc_T, dc_r, dc_q,
                                              dc_sigma, dc_parity)
             fig_cap = go.Figure()
             fig_cap.add_trace(go.Scatter(
@@ -1715,9 +1757,9 @@ certificate, but the more limited your upside.
 
     with sc1:
         try:
-            vol_data = bc_price_across_vols(bc_S, bc_bonus, bc_barrier, bc_T,
+            vol_data = _cached_bc_vols(bc_S, bc_bonus, bc_barrier, bc_T,
                                              bc_r, bc_q, bc_cap, bc_parity,
-                                             sigma_call=bc_sigma_call)
+                                             bc_sigma_call)
             fig_v = go.Figure()
             fig_v.add_trace(go.Scatter(
                 x=[d["vol"] for d in vol_data],
@@ -1751,9 +1793,9 @@ certificate, but the more limited your upside.
 
     with sc2:
         try:
-            time_data = bc_price_across_time(bc_S, bc_bonus, bc_barrier,
+            time_data = _cached_bc_time(bc_S, bc_bonus, bc_barrier,
                                               bc_r, bc_q, bc_sigma_put, bc_cap, bc_parity,
-                                              sigma_call=bc_sigma_call)
+                                              bc_sigma_call)
             fig_t = go.Figure()
             fig_t.add_trace(go.Scatter(
                 x=[d["time"] for d in time_data],
