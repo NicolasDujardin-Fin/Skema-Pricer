@@ -108,5 +108,67 @@
         "a": "**Continuous monitoring makes the cert cheaper** → benefits the **trader/issuer**.\n\n- Continuous: more chances to knock out during the life → Put D&O is worth less → the cert price is lower → issuer margin is easier to extract.\n- Discrete (closing prices only): the put survives intraday breaches → it's worth more → cert is more expensive to structure.\n\n**For the trader:** continuous barrier is easier to price (Reiner-Rubinstein closed form) but harder to hedge (barrier can be hit at any time). Discrete barrier requires Monte Carlo or lattice methods (Broadie-Glasserman-Kou correction) but hedging is more predictable (only check at close).\n\nMost Bonus Certificates use **continuous** monitoring."
       }
     ]
+  },
+  "bonds": {
+    "title": "Interview Q&A — Bonds, Swaps & Convexity",
+    "subtitle": null,
+    "questions": [
+      {
+        "q": "How do you make a currency swap? Give an example.",
+        "a": "You simultaneously **buy spot and sell forward** (or sell spot and buy forward).\n\n**Example:** I am in Europe. I buy a USD bond (6M maturity, $1M notional). I need dollars now.\n\n1. **Today:** I sell EUR/USD spot (= sell EUR, buy USD) → I get the dollars to buy the bond.\n2. **In 6 months:** I will receive dollars back (bond matures). But the risk is those dollars lose value against EUR.\n3. **Today (hedge):** I sell USD forward 6M = buy EUR/USD forward (= buy EUR, sell USD).\n\nAn FX swap is nothing more than a **simultaneous buy spot + sell forward** transaction."
+      },
+      {
+        "q": "How do you make an interest rate swap?",
+        "a": "When you **buy** a bond, you receive the coupon. When you **sell/issue** a bond, you pay the coupon.\n\nSuppose you pay 6% fixed. The risk is that rates decrease — you could be paying less. So you would prefer to **receive 6% fixed** and **pay a lower floating rate**.\n\n**Execution:** Buy a bond with 6% fixed coupon, and sell (issue) a Floating Rate Note (FRN).\n\nThe PV of both legs must be equal (price matching ensures cash flow equivalence). The swap transforms your fixed exposure into floating."
+      },
+      {
+        "q": "If I hedge my coupon with a swap, am I still exposed to the price risk of the bond if the curve moves?",
+        "a": "**No.** By swapping fixed coupons against floating, you **neutralize your duration**. The P&L from the swap's mark-to-market compensates the variation of the bond price.\n\nYou are switching from a **price exposure** to a **margin exposure**:\n\n**Fixed Bond + Pay-Fixed Swap = Synthetic FRN**\n\nBy hedging the coupon, you are \"killing\" the duration. Without duration, there is no yield risk. Your bond's price becomes stable, just like a bank deposit."
+      },
+      {
+        "q": "I am swap payer (I pay fixed) on 100M notional. Rates increase by 10 bps. Do I make or lose money?",
+        "a": "**You make money.** As a payer, you are short the fixed bond (you benefit when fixed bond prices fall, i.e., when rates rise).\n\nApproximate P&L = Notional × DV01 × Δbps = ~**100K** (depending on the duration of the swap)."
+      },
+      {
+        "q": "If I pay the swap (pay fixed), do I increase or decrease my duration?",
+        "a": "**You decrease it.** Paying fixed = selling a fixed bond + buying an FRN. The FRN resets at every coupon period (typically quarterly), so its duration is near zero.\n\nNet effect: you removed the fixed-rate duration from your portfolio."
+      },
+      {
+        "q": "What is the duration of a 5Y zero-coupon bond? Why?",
+        "a": "**5 years.** A zero-coupon bond has no intermediate cash flows — all the risk is concentrated at maturity. Duration = maturity for a ZCB.\n\nThis is also why ZCBs have the highest duration (and convexity) for a given maturity compared to coupon bonds."
+      },
+      {
+        "q": "What does it mean buying a bond at −1% interest rate? Why would you do it?",
+        "a": "It means you **buy at ~101 something that will return 100** at maturity. You are guaranteed to lose money if held to maturity.\n\n**Why buy it?** If you think rates will go **even more negative**. The bond price will rise further, and you can sell it at a profit before maturity. This happened extensively in Europe and Japan (2014–2022)."
+      },
+      {
+        "q": "Can a zero-coupon bond trade at a premium? Why?",
+        "a": "**Yes.** If demand pushes yields into negative territory, the ZCB price rises above par.\n\nPrice = Face / (1 + y)^T. If y < 0, then (1 + y)^T < 1, so Price > Face.\n\nThis happened with German Bunds and Swiss government bonds during the negative rate era."
+      },
+      {
+        "q": "Describe simply what convexity is in bond trading.",
+        "a": "**With convexity, you earn more when you make money, and you lose less when you lose money.**\n\nConvexity is the curvature of the price-yield relationship. A bond with high convexity benefits more from a rate decrease than it suffers from an equal rate increase. It's the bond equivalent of being \"long gamma\" in options."
+      },
+      {
+        "q": "What is the cheapest: a callable bond or a straight bond? Why?",
+        "a": "**The callable bond is cheaper.**\n\nA callable bond has **negative convexity at low yields**: the issuer calls it back to refinance at lower rates. By doing so, the issuer prevents the bondholder from participating in the full price appreciation.\n\nCallable Bond = Straight Bond − Call Option (issuer holds the call).\n\nThe bondholder is short convexity at low yields → they must be compensated with a lower price (higher yield)."
+      },
+      {
+        "q": "For a given maturity, which bond has the strongest convexity: a ZCB or a 5% coupon bond?",
+        "a": "**The ZCB.**\n\nVisualize the PV of a bond as a histogram: X-axis = year, Y-axis = % of total PV each cash flow represents. Draw a curve connecting the tops.\n\n- **Coupon bond:** PV is spread across many dates → the curve is flat.\n- **ZCB:** 100% of PV is at maturity → the curve is a single spike at the end.\n\nThe more the value is \"pushed\" into the future, the steeper the sensitivity to rate changes → **higher convexity**."
+      },
+      {
+        "q": "If interest rates increase, does convexity increase or decrease? Why?",
+        "a": "**It decreases.** When rates rise, the present value of each cash flow decreases — especially the longest-dated ones (because they are discounted more heavily).\n\nSince convexity is driven by distant cash flows, and those lose the most PV when rates rise, the overall convexity shrinks."
+      },
+      {
+        "q": "Two bonds, same maturity: one with 5% coupon, the other with 10% coupon. Rates go from 2% to 8%. Which one sees its convexity decrease first?",
+        "a": "**The 5% coupon bond**, because it has **higher duration**.\n\nHigher duration means greater sensitivity to rate changes. When rates rise sharply, the 5% bond's longer-duration cash flows lose more PV, causing its convexity to drop faster than the 10% bond (which has more PV in near-term coupons)."
+      },
+      {
+        "q": "Two portfolios: (A) 2 bonds with 10Y duration each, (B) 1 bond with 5Y duration + 1 bond with 15Y duration. Which has the biggest convexity?",
+        "a": "**Portfolio B** has more convexity.\n\nBoth portfolios have the same average duration (10Y). But portfolio B has cash flows that are **more spread out** over time (5Y and 15Y vs two 10Y).\n\nConvexity is a function of the **dispersion** of cash flows around the duration. More spread = more convexity. This is the principle behind **barbell vs bullet** strategies: the barbell (B) always has higher convexity for the same duration."
+      }
+    ]
   }
 }

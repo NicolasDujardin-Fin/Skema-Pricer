@@ -982,6 +982,9 @@ def bonds_tab():
         except Exception:
             st.error("Error computing PV chart")
 
+    st.markdown("")
+    _render_qa("bonds")
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # TURBO TAB
