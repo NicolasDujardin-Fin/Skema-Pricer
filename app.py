@@ -1534,6 +1534,29 @@ def bonus_tab():
         st.dataframe(pd.DataFrame(rows, columns=["Component", "Value"]),
                       hide_index=True, use_container_width=True)
 
+    with st.expander("**How It Works — Bonus vs Cap**", expanded=False):
+        st.markdown("""
+**Example:** S = 100, Barrier = 70, Bonus = 120, Cap = 140. If the barrier is **never** breached:
+
+| S_T at Maturity | Payoff | Why |
+|---|---|---|
+| 60 | 60 | Barrier was hit → no protection, you hold the stock |
+| 80 | **120** | S_T < Bonus → the bonus **floor** kicks in |
+| 110 | **120** | Still below Bonus → payoff = Bonus = 120 |
+| 130 | **130** | Bonus < S_T < Cap → you follow the stock upside |
+| 150 | **140** | S_T > Cap → **capped** at 140 |
+
+**Bonus = floor.** As long as the barrier is intact, you receive at least the Bonus level, even if the stock ends below it.
+
+**Cap = ceiling.** Even if the stock rallies to 200, your payoff is limited to the Cap.
+
+**Between Bonus and Cap:** you participate 1:1 in the upside.
+
+The Cap exists because you are short a Call(K=Cap) in the replication — this is what partially funds the
+Down-and-Out Put that gives you the Bonus protection. The lower the Cap (closer to Bonus), the cheaper the
+certificate, but the more limited your upside.
+""")
+
     st.markdown("")
 
     # ── Payoff Charts ──
