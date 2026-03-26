@@ -75,6 +75,32 @@
       }
     ]
   },
+  "turbo": {
+    "title": "Trading Q&A — Turbo Certificates",
+    "subtitle": "Turbo Long = Long Stock − PV(Strike). Knock-out at barrier. Delta ≈ 1 (leveraged exposure).",
+    "questions": [
+      {
+        "q": "I sold 1 000 Turbo Long (ratio 0.1). How many stocks do I need to buy to be hedged?",
+        "a": "**Buy 100 stocks.**\n\nA Turbo Long has delta ≈ 1 per unit, but the ratio converts units to shares.\n\n1 000 Turbos × ratio 0.1 = **100 shares** of delta exposure. You sold → you are short delta → buy 100 stocks to hedge."
+      },
+      {
+        "q": "For a given underlying, I have 2 Turbos: one with leverage 5, the other with leverage 10. Which Turbo is cheaper?",
+        "a": "**Leverage 10 is cheaper.**\n\nHigher leverage = barrier is closer to spot = higher probability of knock-out. The client is taking more risk → pays less.\n\nTurbo price ≈ (Spot − Strike) × Ratio. Higher leverage means the strike is closer to spot → smaller (S − K) → **cheaper Turbo**."
+      },
+      {
+        "q": "For a given underlying, I have 2 Turbos: one with 1% barrier distance, the other with 10% barrier distance. Which is more expensive?",
+        "a": "**The 10% barrier distance is more expensive.**\n\n10% barrier distance means the barrier is further from spot → the Turbo is more in-the-money → lower probability of knock-out → more protection → **higher price**.\n\n1% barrier distance = barrier very close to spot = high KO probability = cheap."
+      },
+      {
+        "q": "For a Turbo Long, do we increase or decrease the strike and barrier every day? Why?",
+        "a": "**Increase them every day.**\n\nThe issuer hedges by holding stocks. To finance this stock position, the issuer borrows cash. The cost of this financing must be passed on to the client.\n\nThe strike increases daily by the financing cost: ΔK = K × r × (1/365).\n\nThe barrier moves up with the strike. This is the **daily funding adjustment** — the client pays for the carry of the hedge through a slowly rising strike."
+      },
+      {
+        "q": "If a Turbo Long gets knocked out, what is the residual value?",
+        "a": "**Residual value = (S − K) × Ratio × FX**\n\nWhen the barrier is breached, the Turbo is terminated. But the barrier is set above the strike (B > K for a Turbo Long), so there is still intrinsic value left:\n\n- S = spot at knock-out (≈ barrier level)\n- K = strike (below the barrier)\n- Ratio = conversion ratio\n- FX = currency adjustment (if underlying is in a different currency)\n\nThe residual value is the remaining intrinsic value returned to the holder. It can be zero if the stock gaps through both barrier and strike."
+      }
+    ]
+  },
   "bonus_cert": {
     "title": "Trading Q&A — Bonus Certificates",
     "subtitle": "Replication: BC = Long S + Long Put D&O(K=Bonus, B=Barrier) − Call(K=Cap). **Client** buys the cert (Long S, Long Put D&O, Short Call). **Trader** sells the cert and hedges (Short S, Short Put D&O, Long Call).",

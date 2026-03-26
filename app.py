@@ -1268,6 +1268,9 @@ def turbo_tab():
             })
         st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
 
+    st.markdown("")
+    _render_qa("turbo")
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # DISCOUNT CERTIFICATES TAB
