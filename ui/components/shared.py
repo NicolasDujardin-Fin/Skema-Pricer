@@ -18,15 +18,30 @@ _CSS = """
 /* ── Global ── */
 [data-testid="stAppViewContainer"] {
     background: #FAFAF9;
+    font-size: 13px !important;
+}
+[data-testid="stAppViewContainer"] p,
+[data-testid="stAppViewContainer"] li,
+[data-testid="stAppViewContainer"] span,
+[data-testid="stAppViewContainer"] td,
+[data-testid="stAppViewContainer"] th,
+[data-testid="stAppViewContainer"] label {
+    font-size: 13px !important;
 }
 section[data-testid="stSidebar"] {
     background: #F7F6F5;
     border-right: 1px solid #E0DEDA;
+    font-size: 12px !important;
+}
+section[data-testid="stSidebar"] p,
+section[data-testid="stSidebar"] span,
+section[data-testid="stSidebar"] label {
+    font-size: 12px !important;
 }
 section[data-testid="stSidebar"] .stNumberInput label,
 section[data-testid="stSidebar"] .stSelectbox label,
 section[data-testid="stSidebar"] .stDateInput label {
-    font-size: 0.78rem;
+    font-size: 0.7rem;
     color: #555;
     margin-bottom: 0;
 }
@@ -45,20 +60,20 @@ section[data-testid="stSidebar"] .stDateInput {
     box-shadow: 0 1px 2px rgba(0,0,0,0.04);
 }
 [data-testid="stMetricLabel"] {
-    font-size: 0.65rem !important;
+    font-size: 0.6rem !important;
     color: #6B6B6B !important;
     text-transform: uppercase;
     letter-spacing: 0.04em;
 }
 [data-testid="stMetricValue"] {
-    font-size: 1.0rem !important;
+    font-size: 0.88rem !important;
     font-weight: 500 !important;
     color: #1D1D1B !important;
 }
 
 /* ── Hero metrics (first row) bigger ── */
 .hero-metric [data-testid="stMetricValue"] {
-    font-size: 1.25rem !important;
+    font-size: 1.05rem !important;
     font-weight: 600 !important;
     color: #1D1D1B !important;
 }
@@ -69,8 +84,8 @@ section[data-testid="stSidebar"] .stDateInput {
 
 /* ── Section headers ── */
 .section-header {
-    font-size: 0.75rem;
-    font-weight: 600;
+    font-size: 0.68rem;
+    font-weight: 500;
     color: #6B6B6B;
     text-transform: uppercase;
     letter-spacing: 0.08em;
@@ -93,7 +108,7 @@ details[data-testid="stExpander"] {
 }
 details[data-testid="stExpander"] summary {
     font-weight: 500;
-    font-size: 0.80rem;
+    font-size: 0.73rem;
     color: #1D1D1B;
 }
 
@@ -103,7 +118,7 @@ details[data-testid="stExpander"] summary {
     border-left: 3px solid #E63329;
     border-radius: 4px;
     padding: 8px 14px;
-    font-size: 0.80rem;
+    font-size: 0.73rem;
     color: #1D1D1B;
     margin-bottom: 0.5rem;
 }
@@ -111,7 +126,7 @@ details[data-testid="stExpander"] summary {
 
 /* ── Title styling ── */
 .app-title {
-    font-size: 1.2rem;
+    font-size: 1.05rem;
     font-weight: 600;
     color: #1D1D1B;
     margin-bottom: 0;
@@ -121,7 +136,7 @@ details[data-testid="stExpander"] summary {
     display: inline-block;
     background: #FDECEA;
     color: #E63329;
-    font-size: 0.62rem;
+    font-size: 0.56rem;
     font-weight: 500;
     padding: 2px 8px;
     border-radius: 4px;
