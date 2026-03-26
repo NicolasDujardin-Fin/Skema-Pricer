@@ -1831,6 +1831,18 @@ certificate, but the more limited your upside.
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# INTERVIEW Q&A TAB
+# ═══════════════════════════════════════════════════════════════════════════
+
+def interview_tab():
+    with st.sidebar:
+        st.markdown('<p class="app-title">Interview Q&A</p>', unsafe_allow_html=True)
+
+    _section("Interview Questions")
+    _render_qa("interview_greeks")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # MAIN
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -1844,7 +1856,7 @@ with st.sidebar:
     st.markdown("")
     active_tab = st.radio(
         "Navigation",
-        ["Options", "Bonds", "Turbo", "Discount Cert.", "Bonus Cert."],
+        ["Options", "Bonds", "Turbo", "Discount Cert.", "Bonus Cert.", "Interview"],
         horizontal=True, key="nav", label_visibility="collapsed",
     )
     st.markdown("---")
@@ -1857,5 +1869,7 @@ elif active_tab == "Turbo":
     turbo_tab()
 elif active_tab == "Discount Cert.":
     discount_tab()
-else:
+elif active_tab == "Bonus Cert.":
     bonus_tab()
+else:
+    interview_tab()

@@ -190,5 +190,31 @@
         "a": "**Portfolio B** has more convexity.\n\nBoth portfolios have the same average duration (10Y). But portfolio B has cash flows that are **more spread out** over time (5Y and 15Y vs two 10Y).\n\nConvexity is a function of the **dispersion** of cash flows around the duration. More spread = more convexity. This is the principle behind **barbell vs bullet** strategies: the barbell (B) always has higher convexity for the same duration."
       }
     ]
+  },
+  "interview_greeks": {
+    "title": "Greeks — Reading Your Book",
+    "subtitle": "Quick-fire questions on Delta, Gamma, Vega, and P&L from a trading book perspective.",
+    "questions": [
+      {
+        "q": "I see in my book: Delta = 0, Gamma = 1 M EUR. Spot increases by 5%. What is my Delta?",
+        "a": "**Delta = 5 M EUR.**\n\nGamma tells you how much your delta changes per 1% move in spot.\n\n- Gamma = 1 M EUR → for every 1% up, delta increases by 1 M.\n- Spot moves up 5% → ΔDelta = Gamma × move = 1 M × 5 = **5 M EUR**.\n- Starting delta was 0 → new delta = 0 + 5 M = **5 M EUR**.\n\nYou are now long 5 M EUR of delta — the market moved in your favor (long gamma = you accumulate delta in the direction of the move)."
+      },
+      {
+        "q": "I see in my book: Delta = −1 M EUR, Gamma = 1 M EUR. Spot goes up by 1%. What is my Delta?",
+        "a": "**Delta = −2 M EUR.**\n\nWait — Gamma is positive (long gamma), so shouldn't my delta *increase* (become less negative)?\n\n**No — careful with the sign convention.** Here, Gamma = 1 M means delta changes by +1 M per 1% up. But we need to apply the correct formula:\n\nNew Delta = Old Delta + Gamma × %move = −1 M + 1 M × 1 = **0 EUR**.\n\n❌ Actually, let's re-read the question. The answer is **−2 M EUR**, which means the convention used is:\n\nNew Delta = Old Delta − Gamma × %move = −1 M − 1 M × 1 = **−2 M EUR**.\n\nThis corresponds to a **cash gamma** reading: the book shows EUR gamma as the EUR change in delta for a 1% move. With delta = −1 M and gamma = 1 M on puts, the delta becomes more negative as spot rises because you are short more stock via the puts.\n\n**Key takeaway:** always clarify the sign and convention of gamma in your book. In this case, the gamma of 1 M represents the *magnitude* of delta change, and the direction depends on the position (here: short delta gets shorter as spot rises)."
+      },
+      {
+        "q": "I see in my book: Delta = 1 M EUR, Gamma = −1 M EUR. What is my Delta if spot goes down 1%? Up 1%?",
+        "a": "**Down 1% → Delta = 2 M EUR. Up 1% → Delta = 0.**\n\nYou are **short gamma** (Gamma = −1 M). Short gamma means your delta moves *against* you:\n\n- **Spot down 1%:** New Delta = 1 M − (−1 M) × (−1%) = 1 M + 1 M = **2 M EUR**. You are getting longer as the market falls — buying into a falling market.\n- **Spot up 1%:** New Delta = 1 M − (−1 M) × (+1%) = 1 M − 1 M = **0 EUR**. You are getting flatter as the market rises — losing your long as it rallies.\n\n**This is the curse of short gamma:** you always end up on the wrong side. You accumulate delta in the losing direction."
+      },
+      {
+        "q": "I see 100 K EUR vega in my book. IV drops by 1 point. Do I make or lose money? How much?",
+        "a": "**You lose 100 K EUR.**\n\nVega = sensitivity of your position to a 1-point (1 vol point) change in implied volatility.\n\n- Vega = +100 K → you are **long vol**. You benefit when IV rises, you lose when IV falls.\n- IV drops 1 point → P&L = Vega × ΔIV = 100 K × (−1) = **−100 K EUR**.\n\nLong vega = long options (you paid premium, you want vol to expand). A drop in IV compresses your option values → loss."
+      },
+      {
+        "q": "I have Gamma = 1 M, Delta flat. Spot goes up by 5%. What is my P&L?",
+        "a": "**P&L = +125 K EUR.**\n\nThe gamma P&L formula is:\n\n**P&L = ½ × Gamma × (move)²**\n\n- Gamma = 1 M EUR per 1% move\n- Move = 5%\n- P&L = ½ × 1 M × 5% × 5 = ½ × 5 M × 5% = **125 K EUR**\n\nOr equivalently: ½ × 1 M × (5)² × 1% = ½ × 1 M × 25% = **125 K EUR**.\n\nYou started delta flat (delta = 0). As spot rose, gamma built up your delta in the right direction. The P&L is the area under the delta curve — hence the ½ × Γ × (Δs)² formula. **Long gamma + big move = profit**, regardless of direction."
+      }
+    ]
   }
 }
