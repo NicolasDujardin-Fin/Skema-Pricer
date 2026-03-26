@@ -40,8 +40,8 @@
         "a": "**Path 2 makes more money.** When gamma long, P&L scales with the **square** of the move.\n\n**Square each daily move and sum:**\n- Path 1: 3² + 3² + 3² = 9 + 9 + 9 = **27**\n- Path 2: 0² + 0² + 9² = 0 + 0 + 81 = **81**\n\nPath 2 is **3× more profitable** despite having the same total move (9%).\n\nThis is the key insight: gamma P&L is **convex** in the move size. One large move is worth more than many small moves that add up to the same total. This is why gamma traders love jumps and hate grinding markets."
       },
       {
-        "q": "Worst-of on Apple ($200) and Nokia ($5): Apple drops $20, Nokia drops $1. Which is the Worst-off?",
-        "a": "**Nokia is the Worst-off.**\n\nThe Worst-of is determined by **relative performance (percentage)**, not absolute dollar moves:\n- Apple: $20 / $200 = **10% drop**\n- Nokia: $1 / $5 = **20% drop**\n\nNokia dropped more in percentage terms → Nokia is the Worst-off component.\n\nThis is a common trap in interviews — the absolute dollar move is irrelevant. The Worst-of always compares percentage returns from the initial fixing level."
+        "q": "Worst-of on Apple (200) and Nokia (5): Apple drops 20, Nokia drops 1. Which is the Worst-off?",
+        "a": "**Nokia is the Worst-off.**\n\nThe Worst-of is determined by **relative performance (percentage)**, not absolute dollar moves:\n- Apple: 20 / 200 = **10% drop**\n- Nokia: 1 / 5 = **20% drop**\n\nNokia dropped more in percentage terms → Nokia is the Worst-off component.\n\nThis is a common trap in interviews — the absolute dollar move is irrelevant. The Worst-of always compares percentage returns from the initial fixing level."
       }
     ]
   },
