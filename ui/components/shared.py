@@ -31,24 +31,46 @@ _CSS = """
 section[data-testid="stSidebar"] {
     background: #F7F6F5;
     border-right: 1px solid #E0DEDA;
-    font-size: 12px !important;
+    font-size: 11px !important;
 }
 section[data-testid="stSidebar"] p,
 section[data-testid="stSidebar"] span,
 section[data-testid="stSidebar"] label {
-    font-size: 12px !important;
+    font-size: 11px !important;
 }
 section[data-testid="stSidebar"] .stNumberInput label,
 section[data-testid="stSidebar"] .stSelectbox label,
-section[data-testid="stSidebar"] .stDateInput label {
-    font-size: 0.7rem;
+section[data-testid="stSidebar"] .stDateInput label,
+section[data-testid="stSidebar"] .stRadio label,
+section[data-testid="stSidebar"] .stSlider label,
+section[data-testid="stSidebar"] .stToggle label {
+    font-size: 11px !important;
     color: #555;
     margin-bottom: 0;
+}
+/* ── Sidebar input boxes: smaller text & height ── */
+section[data-testid="stSidebar"] input,
+section[data-testid="stSidebar"] select,
+section[data-testid="stSidebar"] .stSelectbox [data-baseweb="select"] {
+    font-size: 11px !important;
+    min-height: 0 !important;
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
 }
 section[data-testid="stSidebar"] .stNumberInput,
 section[data-testid="stSidebar"] .stSelectbox,
 section[data-testid="stSidebar"] .stDateInput {
-    margin-bottom: -8px;
+    margin-bottom: -10px;
+}
+section[data-testid="stSidebar"] .stRadio > div {
+    gap: 0.3rem !important;
+}
+section[data-testid="stSidebar"] .stRadio [role="radiogroup"] label {
+    font-size: 11px !important;
+    padding: 2px 6px !important;
+}
+section[data-testid="stSidebar"] .stCaption, section[data-testid="stSidebar"] small {
+    font-size: 10px !important;
 }
 
 /* ── Metric cards ── */
