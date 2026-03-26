@@ -214,6 +214,46 @@
       {
         "q": "I have Gamma = 1 M, Delta flat. Spot goes up by 5%. What is my P&L?",
         "a": "**P&L = +125 K EUR.**\n\nThe gamma P&L formula is:\n\n**P&L = ½ × Gamma × (move)²**\n\n- Gamma = 1 M EUR per 1% move\n- Move = 5%\n- P&L = ½ × 1 M × 5% × 5 = ½ × 5 M × 5% = **125 K EUR**\n\nOr equivalently: ½ × 1 M × (5)² × 1% = ½ × 1 M × 25% = **125 K EUR**.\n\nYou started delta flat (delta = 0). As spot rose, gamma built up your delta in the right direction. The P&L is the area under the delta curve — hence the ½ × Γ × (Δs)² formula. **Long gamma + big move = profit**, regardless of direction."
+      },
+      {
+        "q": "I buy 1 000 calls, ATM, Multiplier 10. How many shares do I buy/sell to be hedged?",
+        "a": "**Sell 5 000 shares.**\n\nATM call → Delta ≈ 0.5. You are long 1 000 calls × multiplier 10 = exposure on 10 000 shares.\n\nDelta exposure = 10 000 × 0.5 = **5 000 shares long**.\n\nTo be delta-neutral, sell 5 000 shares against your calls."
+      },
+      {
+        "q": "I have a deep ITM call. The dividend is about to be paid out. What should I do?",
+        "a": "**Exercise your calls to own the stock before ex-date.**\n\nIf you hold a deep ITM call and don't exercise, the stock drops by the dividend amount on the ex-date — and you receive nothing. Your call loses value by roughly the dividend amount.\n\nBy exercising early, you own the stock and **collect the dividend**. The time value of a deep ITM call is minimal anyway, so you sacrifice almost nothing by exercising. Not exercising = negative P&L impact for missing the dividend."
+      },
+      {
+        "q": "Expiry day. I am short 1 000 calls, strike 100, on a stock with spot = 100. What does my book show as delta cash if spot is at 99.9? At 100.1?",
+        "a": "**Spot = 99.9 → Delta cash = 0. Spot = 100.1 → Delta cash = −10 000 000.**\n\n- At 99.9: calls expire OTM → delta = 0. No exposure.\n- At 100.1: calls expire ITM → delta = −1 (you are short calls). You are short 1 000 × multiplier × spot = **−10 M EUR** of delta.\n\nThis is **pin risk** at expiry. A 0.2 move around the strike swings your delta from 0 to −10 M. At expiry, gamma on ATM options goes to infinity — this is the most dangerous moment for short option positions."
+      },
+      {
+        "q": "I buy a stock at 100. It goes up 10% day 1, then down 10% day 2. Did I make money, lose money, or breakeven?",
+        "a": "**You lost 1 EUR. Ending spot = 99.**\n\n- Day 1: 100 × 1.10 = **110**\n- Day 2: 110 × 0.90 = **99**\n\nPercentage moves are not symmetric. A +10% followed by −10% does not bring you back to the start. The loss is always 100 × (move)² = 100 × (10%)² = **1 EUR**. This is the **volatility drag** — the reason why leveraged and volatile assets underperform over time, even if the average return is zero."
+      },
+      {
+        "q": "I have an ITM call. IV goes to 0. What is my Delta?",
+        "a": "**Delta = 1.**\n\nIf volatility is zero, there is no uncertainty. An ITM call will finish ITM with certainty → it behaves like a forward. Delta = 1."
+      },
+      {
+        "q": "I have an OTM call. IV goes to 0. What is my Delta?",
+        "a": "**Delta = 0.**\n\nIf volatility is zero, an OTM call has zero probability of ever reaching the strike. It will expire worthless with certainty. No sensitivity to spot → Delta = 0."
+      },
+      {
+        "q": "I am Long K1 calls, Short K2 calls (K1 < K2). What is my skew position?",
+        "a": "**You are long skew.**\n\nYou want IV at K1 to increase and IV at K2 to decrease — i.e., you want the skew to **steepen**.\n\n- Long K1 = long vega at K1 → you benefit if IV at K1 rises.\n- Short K2 = short vega at K2 → you benefit if IV at K2 falls.\n\nA steeper skew (lower strikes trading at higher IV relative to higher strikes) helps both legs. You are **long skew**."
+      },
+      {
+        "q": "Why am I rho positive when I buy a call?",
+        "a": "**Two ways to see it:**\n\n**1. Forward argument:** A call is long the forward. F = S × e^{(r−q)T}. If you increase the rate, the forward goes up → call value increases.\n\n**2. Cash argument:** When you buy a call, you delta-hedge by selling stock. Selling stock generates cash that you deposit in a bank. You want the highest possible rate on that cash → **you are rho positive**.\n\nBoth views give the same result: long call = benefits from higher rates."
+      },
+      {
+        "q": "If volatility goes to infinity, what happens to Gamma?",
+        "a": "**Gamma goes to 0.**\n\nIf volatility is infinite, every option has the same probability of finishing ITM: 50%. All deltas converge to 0.5, regardless of strike.\n\nIf all deltas are 0.5 at every strike level, they don't change when spot moves. Gamma is the change of delta → **gamma = 0**."
+      },
+      {
+        "q": "If volatility is 0, what is Gamma for an ATM option? And for OTM/ITM?",
+        "a": "**ATM → Gamma goes to infinity. OTM/ITM → Gamma = 0.**\n\nWith zero vol, delta is a step function: 0 below the strike, 1 above. At the strike (ATM), delta jumps discontinuously from 0 to 1 over an infinitely small range → **gamma = infinity**.\n\nFor OTM: delta is stuck at 0, never changes → gamma = 0.\nFor ITM: delta is stuck at 1, never changes → gamma = 0.\n\nThis is the mirror image of the infinite vol case. At vol = 0, all the gamma concentrates at the strike. At vol = ∞, gamma vanishes everywhere."
       }
     ]
   }
