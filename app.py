@@ -1785,7 +1785,7 @@ certificate, but the more limited your upside.
                             xanchor="center", x=0.5, font=dict(size=11)),
             )
             # Current vol marker
-            fig_v.add_vline(x=bc_sigma * 100, line_dash="dot", line_color="#a0aec0",
+            fig_v.add_vline(x=bc_sigma_put * 100, line_dash="dot", line_color="#a0aec0",
                              line_width=1)
             st.plotly_chart(fig_v, use_container_width=True)
         except Exception:
