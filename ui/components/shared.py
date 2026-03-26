@@ -187,8 +187,8 @@ PLOT_LAYOUT = dict(
     plot_bgcolor="white",
     paper_bgcolor="white",
     font=dict(family="Inter, system-ui, sans-serif", size=12, color="#4a5568"),
-    margin=dict(l=45, r=15, t=36, b=42),
-    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left",
+    margin=dict(l=45, r=15, t=36, b=60),
+    legend=dict(orientation="h", yanchor="top", y=-0.18, xanchor="center", x=0.5,
                 font=dict(size=11)),
     xaxis=dict(gridcolor="#f0f0f0", linecolor="#ddd", linewidth=1,
                zeroline=False, tickfont=dict(size=10)),
@@ -228,9 +228,7 @@ def make_line_chart(
                       annotation_font_color="#a0aec0")
     layout = dict(**PLOT_LAYOUT)
     if legend_below:
-        layout["margin"] = dict(l=45, r=15, t=60, b=42)
-        layout["legend"] = dict(orientation="h", yanchor="top", y=-0.25,
-                                xanchor="center", x=0.5, font=dict(size=11))
+        layout["margin"] = dict(l=45, r=15, t=60, b=60)
     fig.update_layout(
         title=dict(text=title, font=dict(size=13, color="#2d3748"), x=0, xanchor="left"),
         xaxis_title=x_label,
