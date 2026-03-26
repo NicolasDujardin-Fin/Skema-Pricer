@@ -9,5 +9,6 @@ def interview_tab():
     with st.sidebar:
         st.markdown('<p class="app-title">Interview Q&A</p>', unsafe_allow_html=True)
 
-    section("Interview Questions")
     render_qa("interview_greeks")
+    st.markdown("")
+    render_qa("interview_it")

@@ -286,5 +286,51 @@
         "a": "**ATM → Gamma goes to infinity. OTM/ITM → Gamma = 0.**\n\nWith zero vol, delta is a step function: 0 below the strike, 1 above. At the strike (ATM), delta jumps discontinuously from 0 to 1 over an infinitely small range → **gamma = infinity**.\n\nFor OTM: delta is stuck at 0, never changes → gamma = 0.\nFor ITM: delta is stuck at 1, never changes → gamma = 0.\n\nThis is the mirror image of the infinite vol case. At vol = 0, all the gamma concentrates at the strike. At vol = ∞, gamma vanishes everywhere."
       }
     ]
+  },
+  "interview_it": {
+    "title": "IT & Project Setup — Why It Matters on a Trading Desk",
+    "subtitle": "Practical questions about Python tooling, version control, and project architecture — with trading desk examples.",
+    "questions": [
+      {
+        "q": "What is a virtual environment (venv)? Why do we use one?",
+        "a": "A venv is an isolated Python installation specific to your project.\n\n**Example:** You built a risk report last year using `pandas 2.1`. Today you start a new pricer that needs `pandas 2.2`. You run `pip install --upgrade pandas` — and your risk report breaks because `pandas 2.2` removed a function you were using. Now the desk has no risk report on a Monday morning.\n\nWith a venv, each project has its own isolated copy of pandas. Upgrading one project doesn't touch the other. The risk report keeps running on 2.1, the pricer runs on 2.2. No one gets fired."
+      },
+      {
+        "q": "What is requirements.txt? Why is it important?",
+        "a": "It lists every package your project needs, with versions. When someone clones the project, `pip install -r requirements.txt` installs everything in one command.\n\n**Example:** A new intern joins the desk. Without `requirements.txt`, they clone the repo, run `streamlit run app.py`, and get `ModuleNotFoundError: No module named 'plotly'`. They install plotly. Then scipy is missing. Then numpy. Then the wrong version of streamlit breaks the layout. They waste half a day.\n\nWith `requirements.txt`, it's one command: done. They're productive in 5 minutes."
+      },
+      {
+        "q": "What is .gitignore? Why do we need it?",
+        "a": "It tells Git which files to never track. You list patterns (`venv/`, `*.pyc`, `.env`) and Git ignores them completely.\n\n**Example:** Your `.env` file contains the API key for your Bloomberg data feed. Without `.gitignore`, you push it to GitHub. A bot scrapes it within minutes. Someone runs 50,000 queries on your key overnight. You get a $30,000 invoice and the API key is revoked. The desk has no market data the next morning.\n\n`.gitignore` prevents this. It keeps secrets, generated files, and local junk out of the repository."
+      },
+      {
+        "q": "Why do we never push the venv/ folder to Git?",
+        "a": "Three reasons:\n\n1. **Size** — your code is 200 KB. The venv is 300 MB. That's like emailing a 10-page PDF with 500 MB of attachments.\n2. **OS-specific** — a venv built on Windows won't work on the Linux server where your app runs in production. It contains compiled binaries tied to your machine.\n3. **Redundant** — `requirements.txt` already describes everything. Anyone can recreate the venv in 10 seconds.\n\n**Example:** You wouldn't ship your entire Bloomberg terminal to a colleague so they can read one Excel file. You send the file and let them open it on their own terminal."
+      },
+      {
+        "q": "Why do we separate engines (computation) from UI (Streamlit)?",
+        "a": "So that different people can work on different parts. A quant can improve the Reiner-Rubinstein formula in `engines/bonus.py` without knowing Streamlit. A developer can redesign the charts without touching the math.\n\n**Example:** On a desk, the structurer designs the product payoff, the quant builds the pricing model, and the IT dev builds the booking system. The structurer doesn't write C++, the quant doesn't do HTML. If the quant changes the pricing model, the booking system shouldn't break. Same principle: `engines/` is the quant, `ui/` is the IT dev."
+      },
+      {
+        "q": "What is Git? Why not just share code on a shared drive or by email?",
+        "a": "Git tracks every change, who made it, when, and why. You can revert to any previous version.\n\n**Example:** Two quants work on the same pricer. Quant A modifies the vol surface. Quant B modifies the dividend model. On a shared drive, whoever saves last overwrites the other's work. With email, nobody knows which version is current — \"pricer_v3_final_FINAL_v2.py\".\n\nWith Git, both quants work on their own branch, and Git merges the changes together. If Quant A's vol change breaks something, you revert to the previous version in one command. Try doing that with a shared drive."
+      },
+      {
+        "q": "What is a commit? What is a push?",
+        "a": "A **commit** = saving a snapshot with a message (\"fixed barrier pricing bug\"). A **push** = uploading that snapshot to GitHub so others can see it.\n\n**Example:** You fix a bug in the pricer at 6pm. You commit but forget to push. Your laptop gets stolen on the way home. The fix is gone. The desk trades with the buggy pricer the next morning.\n\nCommit = writing in your notebook. Push = publishing it. Always push before you leave."
+      },
+      {
+        "q": "Why do we use @st.cache_data instead of recomputing everything each time?",
+        "a": "Streamlit re-runs the entire script on every user interaction. Without caching, moving a volatility slider recomputes every chart from scratch — the app freezes for 3 seconds each time.\n\n**Example:** A sales desk asks you for the price of a Bonus Certificate. You compute it in 2 seconds. They ask \"same thing but bump the vol by 1%?\". Without caching, you recompute everything from zero — underlying PV, barrier pricing, payoff charts, all of it. With caching, only the vol-dependent parts recompute. The rest is instant.\n\nIt's like a trader who keeps their pricing sheet open instead of rebuilding it from scratch for every client call."
+      },
+      {
+        "q": "Why is the project structured in folders (engines/, ui/, data/, tests/) instead of one big file?",
+        "a": "One 1,900-line file works but is painful to navigate, and every Git merge creates conflicts.\n\n**Example:** Imagine the entire desk — traders, structurers, risk, compliance — shares one single Excel workbook. Every time someone updates a cell, it conflicts with someone else's change. Finding anything takes 5 minutes of scrolling. Now imagine splitting it into tabs by function: Pricing, Risk, P&L, Compliance. Each team owns their tab. That's what folders do for code."
+      },
+      {
+        "q": "What are tests? Why do we have tests/test_engines.py?",
+        "a": "Tests are automated checks that verify your code still works after a change. Our tests check: \"does put-call parity hold?\", \"is American price ≥ European?\", \"does a par bond price at 1000?\".\n\n**Example:** A junior quant \"optimizes\" the Black-Scholes function and accidentally breaks the delta calculation. Without tests, nobody notices until a trader hedges with the wrong delta and loses €200K. With tests, the junior runs `pytest` before pushing — it fails in 2 seconds, they fix the bug, the desk never sees it.\n\nTests are your pre-trade checks. You run them before deploying, not after the P&L blows up."
+      }
+    ]
   }
 }
