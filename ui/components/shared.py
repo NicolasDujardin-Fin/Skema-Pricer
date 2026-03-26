@@ -82,25 +82,27 @@ section[data-testid="stSidebar"] .stCaption, section[data-testid="stSidebar"] sm
 [data-testid="stMetric"] {
     background: white;
     border: 1px solid #e8ecf0;
-    border-radius: 6px;
-    padding: 10px 12px 6px 12px;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    border-radius: 4px;
+    padding: 6px 10px 4px 10px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
 }
 [data-testid="stMetricLabel"] {
-    font-size: 0.6rem !important;
+    font-size: 9px !important;
     color: #6B6B6B !important;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.03em;
+    line-height: 1.2 !important;
 }
 [data-testid="stMetricValue"] {
-    font-size: 0.88rem !important;
+    font-size: 13px !important;
     font-weight: 500 !important;
     color: #1D1D1B !important;
+    line-height: 1.3 !important;
 }
 
 /* ── Hero metrics (first row) bigger ── */
 .hero-metric [data-testid="stMetricValue"] {
-    font-size: 1.05rem !important;
+    font-size: 15px !important;
     font-weight: 600 !important;
     color: #1D1D1B !important;
 }
@@ -111,20 +113,20 @@ section[data-testid="stSidebar"] .stCaption, section[data-testid="stSidebar"] sm
 
 /* ── Section headers ── */
 .section-header {
-    font-size: 0.68rem;
+    font-size: 9px;
     font-weight: 500;
     color: #6B6B6B;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    margin-top: 1.2rem;
-    margin-bottom: 0.4rem;
-    padding-bottom: 0.3rem;
+    margin-top: 0.8rem;
+    margin-bottom: 0.2rem;
+    padding-bottom: 0.2rem;
     border-bottom: 1px solid #E0DEDA;
 }
 
 /* ── Containers ── */
 .block-container {
-    padding-top: 1.5rem;
+    padding-top: 1rem;
 }
 
 /* ── Expanders ── */
@@ -135,8 +137,18 @@ details[data-testid="stExpander"] {
 }
 details[data-testid="stExpander"] summary {
     font-weight: 500;
-    font-size: 0.73rem;
+    font-size: 12px;
     color: #1D1D1B;
+}
+/* ── Main content inputs (inside expanders) ── */
+[data-testid="stAppViewContainer"] input,
+[data-testid="stAppViewContainer"] select {
+    font-size: 12px !important;
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
+}
+[data-testid="stAppViewContainer"] .stNumberInput button {
+    padding: 2px !important;
 }
 
 /* ── Delta hedge bar ── */
