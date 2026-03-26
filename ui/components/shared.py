@@ -15,6 +15,11 @@ import streamlit as st
 
 _CSS = """
 <style>
+/* ── Header ── */
+[data-testid="stHeader"] {
+    background: #1D1D1B !important;
+}
+
 /* ── Global ── */
 [data-testid="stAppViewContainer"] {
     background: #FAFAF9;
