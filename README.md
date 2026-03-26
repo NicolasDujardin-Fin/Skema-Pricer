@@ -21,15 +21,30 @@ Derivatives & fixed-income pricer built with Streamlit and Plotly.
 ## Structure
 
 ```
-app.py                Streamlit UI (all tabs)
-bs_engine.py          Black-Scholes pricing & Greeks
-bond_engine.py        Bond analytics, callable pricing, rate tree
-numerical_engine.py   American option pricing (CRR binomial)
-rates_engine.py       Forward pricing
-discount_engine.py    Discount Certificate (BS call replication)
-bonus_engine.py       Bonus Certificate (Reiner-Rubinstein D&O put)
-turbo_engine.py       Turbo Certificate pricing & financing
-questions.json        All interview Q&A content
+app.py                    Streamlit entry point (thin redirect)
+ui/
+  main.py                 Navigation & page config
+  components/
+    shared.py             CSS, chart builders, section headers, Q&A renderer
+    cache.py              All @st.cache_data wrappers
+  tabs/
+    options.py            Black-Scholes, Greeks, sensitivity charts
+    bonds.py              Fixed income, duration, callable bonds
+    turbo.py              Turbo Open-End Long/Short
+    discount.py           Discount Certificate
+    bonus.py              Bonus Certificate (Reiner-Rubinstein)
+    interview.py          Standalone interview Q&A
+engines/
+  bs.py                   Black-Scholes pricing & Greeks
+  bond.py                 Bond analytics, callable pricing, rate tree
+  numerical.py            American option pricing (CRR binomial)
+  rates.py                Forward pricing
+  discount.py             Discount Certificate (BS call replication)
+  bonus.py                Bonus Certificate (D&O put)
+data/
+  questions.json          All interview Q&A content
+tests/
+  test_engines.py         Smoke tests for pricing engines
 ```
 
 ## Run
@@ -37,6 +52,12 @@ questions.json        All interview Q&A content
 ```bash
 pip install -r requirements.txt
 streamlit run app.py
+```
+
+## Tests
+
+```bash
+python -m pytest tests/
 ```
 
 ## Key formulas

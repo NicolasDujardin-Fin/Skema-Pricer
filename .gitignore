@@ -4,9 +4,11 @@ assets/external/
 .web
 *.db
 venv/
+.venv/
 __pycache__/
 *.pyc
 *.pyo
 .env
 .claude/
 .web/
+.pytest_cache/

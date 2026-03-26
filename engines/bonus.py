@@ -144,7 +144,7 @@ def bonus_certificate_price(
     # Optional short call for the cap
     call_cap = 0.0
     if cap is not None and cap > 0:
-        from discount_engine import _bs_call
+        from engines.discount import _bs_call
         call_cap = _bs_call(S, cap, T, r, q, sigma_call)
 
     bc_total = underlying_pv + put_do - call_cap
