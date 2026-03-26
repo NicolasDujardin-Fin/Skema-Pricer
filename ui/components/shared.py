@@ -82,12 +82,36 @@ section[data-testid="stSidebar"] .stCaption, section[data-testid="stSidebar"] sm
     font-size: 10px !important;
 }
 
+/* ── Force compact everywhere ── */
+.main .block-container {
+    padding-top: 0.8rem;
+    font-size: 12px !important;
+}
+.main .block-container p,
+.main .block-container span,
+.main .block-container label,
+.main .block-container td,
+.main .block-container th,
+.main .block-container li,
+.main .block-container input,
+.main .block-container select,
+.main .block-container button {
+    font-size: 12px !important;
+}
+.main .block-container input {
+    padding: 3px 8px !important;
+    height: auto !important;
+}
+.main .block-container [data-baseweb="input"] {
+    min-height: 0 !important;
+}
+
 /* ── Metric cards ── */
 [data-testid="stMetric"] {
     background: white;
     border: 1px solid #e8ecf0;
     border-radius: 4px;
-    padding: 6px 10px 4px 10px;
+    padding: 5px 8px 3px 8px !important;
     box-shadow: 0 1px 2px rgba(0,0,0,0.03);
 }
 [data-testid="stMetricLabel"] {
@@ -95,18 +119,29 @@ section[data-testid="stSidebar"] .stCaption, section[data-testid="stSidebar"] sm
     color: #6B6B6B !important;
     text-transform: uppercase;
     letter-spacing: 0.03em;
-    line-height: 1.2 !important;
+    line-height: 1.1 !important;
+    margin-bottom: 0 !important;
+    min-height: 0 !important;
+}
+[data-testid="stMetricLabel"] p {
+    font-size: 9px !important;
+    line-height: 1.1 !important;
+    margin: 0 !important;
 }
 [data-testid="stMetricValue"] {
     font-size: 13px !important;
     font-weight: 500 !important;
     color: #1D1D1B !important;
-    line-height: 1.3 !important;
+    line-height: 1.2 !important;
+}
+[data-testid="stMetricValue"] div {
+    font-size: 13px !important;
 }
 
 /* ── Hero metrics (first row) bigger ── */
-.hero-metric [data-testid="stMetricValue"] {
-    font-size: 15px !important;
+.hero-metric [data-testid="stMetricValue"],
+.hero-metric [data-testid="stMetricValue"] div {
+    font-size: 14px !important;
     font-weight: 600 !important;
     color: #1D1D1B !important;
 }
@@ -122,37 +157,34 @@ section[data-testid="stSidebar"] .stCaption, section[data-testid="stSidebar"] sm
     color: #6B6B6B;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    margin-top: 0.8rem;
-    margin-bottom: 0.2rem;
-    padding-bottom: 0.2rem;
+    margin-top: 0.6rem;
+    margin-bottom: 0.15rem;
+    padding-bottom: 0.15rem;
     border-bottom: 1px solid #E0DEDA;
 }
 
-/* ── Containers ── */
-.block-container {
-    padding-top: 1rem;
+/* ── Reduce vertical gaps between elements ── */
+.main .block-container [data-testid="stVerticalBlock"] > div {
+    gap: 0.4rem !important;
+}
+.main .block-container [data-testid="stHorizontalBlock"] {
+    gap: 0.4rem !important;
 }
 
 /* ── Expanders ── */
 details[data-testid="stExpander"] {
     border: 1px solid #E0DEDA !important;
-    border-radius: 6px !important;
+    border-radius: 4px !important;
     background: white !important;
 }
 details[data-testid="stExpander"] summary {
     font-weight: 500;
-    font-size: 12px;
+    font-size: 11px;
     color: #1D1D1B;
+    padding: 6px 10px !important;
 }
-/* ── Main content inputs (inside expanders) ── */
-[data-testid="stAppViewContainer"] input,
-[data-testid="stAppViewContainer"] select {
-    font-size: 12px !important;
-    padding-top: 4px !important;
-    padding-bottom: 4px !important;
-}
-[data-testid="stAppViewContainer"] .stNumberInput button {
-    padding: 2px !important;
+details[data-testid="stExpander"] [data-testid="stExpanderDetails"] {
+    padding: 6px 10px !important;
 }
 
 /* ── Delta hedge bar ── */
