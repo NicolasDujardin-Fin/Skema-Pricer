@@ -98,6 +98,10 @@
       {
         "q": "If a Turbo Long gets knocked out, what is the residual value?",
         "a": "**Residual value = (S − K) × Ratio × FX**\n\nWhen the barrier is breached, the Turbo is terminated. But the barrier is set above the strike (B > K for a Turbo Long), so there is still intrinsic value left:\n\n- S = spot at knock-out (≈ barrier level)\n- K = strike (below the barrier)\n- Ratio = conversion ratio\n- FX = currency adjustment (if underlying is in a different currency)\n\nThe residual value is the remaining intrinsic value returned to the holder. It can be zero if the stock gaps through both barrier and strike."
+      },
+      {
+        "q": "A Turbo Long (10 000 lots) gets knocked out. What must the trader do?",
+        "a": "**Sell all the stocks he was holding against this Turbo.**\n\nThe trader (issuer) was hedged by holding the underlying shares. When the Turbo gets KO'd, the product is dead — there is no more delta exposure to hedge. The trader must **unwind the hedge** by selling all the stocks.\n\n10 000 lots × ratio = number of shares to sell. This must be done quickly, but the stock is already falling (that's why it hit the barrier) — selling into a falling market adds further pressure."
       }
     ]
   },
