@@ -17,7 +17,7 @@ _CSS = """
 <style>
 /* ── Header ── */
 [data-testid="stHeader"] {
-    background: #1D1D1B !important;
+    background: #ECEAE7 !important;
 }
 
 /* ── Global ── */
