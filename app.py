@@ -6,11 +6,14 @@ Run with: streamlit run app.py
 import sys
 import os
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+_ROOT = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, _ROOT)
 
 import streamlit as st
 
 from ui.components.shared import inject_css
+
+_LOGO_PATH = os.path.join(_ROOT, "assets", "skema_logo.png")
 from ui.tabs.options import options_tab
 from ui.tabs.bonds import bonds_tab
 from ui.tabs.turbo import turbo_tab
@@ -21,6 +24,10 @@ from ui.tabs.interview import interview_tab
 # ── Page config & CSS ──
 st.set_page_config(page_title="Skema Pricer", layout="wide", page_icon="📈")
 inject_css()
+
+# ── Logo ──
+if os.path.exists(_LOGO_PATH):
+    st.logo(_LOGO_PATH)
 
 # ── Navigation ──
 with st.sidebar:
