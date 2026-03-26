@@ -51,6 +51,17 @@ def test_american_premium():
     assert am["price"] >= am["eu_price"], "American put should be >= European"
 
 
+def test_turbo_price():
+    from engines.turbo import turbo_price, is_knocked_out, barrier_distance, daily_funding_cost
+    res = turbo_price(100, 80, 10, is_long=True)
+    assert abs(res["price"] - 2.0) < 0.001, f"Turbo price should be 2.0: {res['price']}"
+    assert res["leverage"] == 5.0, f"Leverage should be 5x: {res['leverage']}"
+    assert not is_knocked_out(100, 82, is_long=True), "Should not be KO"
+    assert is_knocked_out(81, 82, is_long=True), "Should be KO"
+    assert abs(barrier_distance(100, 82) - 18.0) < 0.01, "Barrier distance should be 18%"
+    assert daily_funding_cost(80, 2.0) > 0, "Daily funding should be positive"
+
+
 if __name__ == "__main__":
     test_bs_call_put_parity()
     test_bs_greeks_delta_range()
@@ -58,4 +69,5 @@ if __name__ == "__main__":
     test_discount_cert()
     test_bonus_cert()
     test_american_premium()
+    test_turbo_price()
     print("All tests passed")

@@ -47,7 +47,14 @@ tests/
   test_engines.py         Smoke tests for pricing engines
 ```
 
-## Run
+## Run (with uv)
+
+```bash
+uv sync
+uv run streamlit run app.py
+```
+
+Or with pip:
 
 ```bash
 pip install -r requirements.txt
@@ -57,7 +64,7 @@ streamlit run app.py
 ## Tests
 
 ```bash
-python -m pytest tests/
+uv run pytest
 ```
 
 ## Key formulas

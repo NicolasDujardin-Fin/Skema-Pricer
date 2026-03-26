@@ -1,9 +1,18 @@
 """Turbo tab — Turbo Open-End Long/Short certificates."""
 
-import numpy as np
 import pandas as pd
 import streamlit as st
 
+from engines.turbo import (
+    turbo_price as compute_turbo,
+    is_knocked_out,
+    barrier_distance,
+    daily_funding_cost,
+    strike_after_drift,
+    drift_series,
+    payoff_series,
+    sensitivity_table,
+)
 from ui.components.shared import section, make_line_chart, render_qa
 
 
@@ -53,21 +62,15 @@ def turbo_tab():
                                   format="%.0f", min_value=1.0, key="t_lots")
 
     # ── COMPUTE ──
-    if is_long:
-        intrinsic = max(0.0, t_S - t_K)
-    else:
-        intrinsic = max(0.0, t_K - t_S)
+    res = compute_turbo(t_S, t_K, parity, is_long)
+    tp = res["price"]
+    leverage = res["leverage"]
+    dist = barrier_distance(t_S, t_B)
+    daily_fund = daily_funding_cost(t_K, r_f)
+    knocked_out = is_knocked_out(t_S, t_B, is_long)
 
-    turbo_price = intrinsic / parity
-    leverage = (t_S / (turbo_price * parity)) if turbo_price > 0.0001 else 0.0
-    dist_barrier = abs(t_S - t_B) / t_S * 100 if t_S > 0 else 0.0
-    daily_funding = t_K * (r_f / 100) / 360
-
-    initial_delta_cash = t_lots * turbo_price
+    initial_delta_cash = t_lots * tp
     leveraged_delta_cash = leverage * initial_delta_cash
-
-    # Is the position alive?
-    knocked_out = (is_long and t_S <= t_B) or (not is_long and t_S >= t_B)
 
     # ── PRIMARY METRICS ──
     section("Turbo Open-End Pricing")
@@ -77,10 +80,10 @@ def turbo_tab():
 
     st.markdown('<div class="hero-metric">', unsafe_allow_html=True)
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Turbo Price", f"{turbo_price:.4f}" if not knocked_out else "0.0000")
+    m1.metric("Turbo Price", f"{tp:.4f}" if not knocked_out else "0.0000")
     m2.metric("Leverage", f"{leverage:.1f}x" if not knocked_out else "—")
-    m3.metric("Distance to Barrier", f"{dist_barrier:.2f}%")
-    m4.metric("Daily Funding Cost", f"{daily_funding:.4f}")
+    m3.metric("Distance to Barrier", f"{dist:.2f}%")
+    m4.metric("Daily Funding Cost", f"{daily_fund:.4f}")
     st.markdown('</div>', unsafe_allow_html=True)
 
     # ── POSITION DELTAS ──
@@ -91,11 +94,11 @@ def turbo_tab():
     pe3.metric("Equivalent Underlying", f"{leveraged_delta_cash / t_S:,.1f} units" if not knocked_out and t_S > 0 else "—")
 
     # Barrier proximity warning
-    if not knocked_out and dist_barrier < 2.0:
+    if not knocked_out and dist < 2.0:
         st.warning("**Knock-out risk imminent** — distance to barrier < 2%. "
                     "A small adverse move will terminate the product.", icon="⚠️")
-    elif not knocked_out and dist_barrier < 5.0:
-        st.info(f"Barrier proximity: {dist_barrier:.2f}% — monitor closely.", icon="ℹ️")
+    elif not knocked_out and dist < 5.0:
+        st.info(f"Barrier proximity: {dist:.2f}% — monitor closely.", icon="ℹ️")
 
     st.markdown("")
 
@@ -105,15 +108,10 @@ def turbo_tab():
     with st.container(border=True):
         drift_days = st.slider("Holding period (days)", 0, 360, 30, step=1, key="t_drift")
 
-        K_drifted = t_K + daily_funding * drift_days if is_long else t_K - daily_funding * drift_days
-
-        if is_long:
-            intr_drifted = max(0.0, t_S - K_drifted)
-        else:
-            intr_drifted = max(0.0, K_drifted - t_S)
-
-        price_drifted = intr_drifted / parity
-        value_erosion = turbo_price - price_drifted
+        K_drifted = strike_after_drift(t_K, daily_fund, drift_days, is_long)
+        res_drifted = compute_turbo(t_S, K_drifted, parity, is_long)
+        price_drifted = res_drifted["price"]
+        value_erosion = tp - price_drifted
 
         dc1, dc2, dc3, dc4 = st.columns(4)
         dc1.metric("K today", f"{t_K:.2f}")
@@ -124,16 +122,8 @@ def turbo_tab():
                     delta=f"{-value_erosion:.4f}" if value_erosion > 0 else "0",
                     delta_color="inverse")
 
-        # Drift chart: K and Turbo price over time
-        drift_data = []
-        for d in range(0, drift_days + 1):
-            Kd = t_K + daily_funding * d if is_long else t_K - daily_funding * d
-            iv = max(0.0, t_S - Kd) if is_long else max(0.0, Kd - t_S)
-            drift_data.append({
-                "day": d,
-                "strike": round(Kd, 4),
-                "turbo_price": round(iv / parity, 4),
-            })
+        # Drift chart
+        drift_data = drift_series(t_S, t_K, t_B, parity, r_f, drift_days, is_long)
 
         if drift_data:
             dc_l, _sp, dc_r = st.columns([5, 0.3, 5])
@@ -165,24 +155,7 @@ def turbo_tab():
     # ── PAYOFF CHART ──
     section("Payoff at Current Time")
 
-    spot_lo = t_K * 0.7 if is_long else t_K * 0.5
-    spot_hi = t_K * 1.5 if is_long else t_K * 1.3
-    spots = np.linspace(spot_lo, spot_hi, 200)
-    payoff_data = []
-
-    for s in spots:
-        s = float(s)
-        if is_long:
-            ko = s <= t_B
-            iv = max(0.0, s - t_K) / parity if not ko else 0.0
-        else:
-            ko = s >= t_B
-            iv = max(0.0, t_K - s) / parity if not ko else 0.0
-
-        payoff_data.append({
-            "spot": round(s, 2),
-            "payoff": round(iv, 4),
-        })
+    payoff_data = payoff_series(t_K, t_B, parity, is_long)
 
     fig_payoff = make_line_chart(
         payoff_data, "spot",
@@ -211,27 +184,7 @@ def turbo_tab():
 
     # ── SENSITIVITY TABLE ──
     with st.expander("**Turbo Sensitivity Table — Spot Scenarios**", expanded=False):
-        scenarios = np.linspace(t_B * 0.98, spot_hi, 25) if is_long else np.linspace(spot_lo, t_B * 1.02, 25)
-        rows = []
-        for s in scenarios:
-            s = float(s)
-            if is_long:
-                ko = s <= t_B
-                iv = max(0.0, s - t_K) / parity if not ko else 0.0
-                lev = (s / (iv * parity)) if iv > 0.0001 else 0.0
-            else:
-                ko = s >= t_B
-                iv = max(0.0, t_K - s) / parity if not ko else 0.0
-                lev = (s / (iv * parity)) if iv > 0.0001 else 0.0
-            dist = abs(s - t_B) / s * 100 if s > 0 else 0
-            pnl = (iv - turbo_price) if not knocked_out else -turbo_price
-            rows.append({
-                "Spot": f"{s:.2f}",
-                "Turbo Price": f"{iv:.4f}" if not ko else "KO",
-                "Leverage": f"{lev:.1f}x" if not ko else "—",
-                "Dist. Barrier": f"{dist:.1f}%",
-                "P&L / unit": f"{pnl:+.4f}",
-            })
+        rows = sensitivity_table(t_S, t_K, t_B, parity, tp, is_long)
         st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
 
     st.markdown("")
