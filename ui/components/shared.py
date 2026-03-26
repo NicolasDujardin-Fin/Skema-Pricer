@@ -41,35 +41,35 @@ section[data-testid="stSidebar"] .stDateInput {
     background: white;
     border: 1px solid #e8ecf0;
     border-radius: 6px;
-    padding: 12px 14px 8px 14px;
+    padding: 10px 12px 6px 12px;
     box-shadow: 0 1px 2px rgba(0,0,0,0.04);
 }
 [data-testid="stMetricLabel"] {
-    font-size: 0.7rem !important;
+    font-size: 0.65rem !important;
     color: #6B6B6B !important;
     text-transform: uppercase;
     letter-spacing: 0.04em;
 }
 [data-testid="stMetricValue"] {
-    font-size: 1.15rem !important;
-    font-weight: 600 !important;
+    font-size: 1.0rem !important;
+    font-weight: 500 !important;
     color: #1D1D1B !important;
 }
 
 /* ── Hero metrics (first row) bigger ── */
 .hero-metric [data-testid="stMetricValue"] {
-    font-size: 1.5rem !important;
-    font-weight: 700 !important;
+    font-size: 1.25rem !important;
+    font-weight: 600 !important;
     color: #1D1D1B !important;
 }
 .hero-metric [data-testid="stMetric"] {
-    border-left: 3px solid #E63329;
+    border-left: 2px solid #E63329;
     background: #FEF7F6;
 }
 
 /* ── Section headers ── */
 .section-header {
-    font-size: 0.82rem;
+    font-size: 0.75rem;
     font-weight: 600;
     color: #6B6B6B;
     text-transform: uppercase;
@@ -92,8 +92,8 @@ details[data-testid="stExpander"] {
     background: white !important;
 }
 details[data-testid="stExpander"] summary {
-    font-weight: 600;
-    font-size: 0.85rem;
+    font-weight: 500;
+    font-size: 0.80rem;
     color: #1D1D1B;
 }
 
@@ -103,7 +103,7 @@ details[data-testid="stExpander"] summary {
     border-left: 3px solid #E63329;
     border-radius: 4px;
     padding: 8px 14px;
-    font-size: 0.85rem;
+    font-size: 0.80rem;
     color: #1D1D1B;
     margin-bottom: 0.5rem;
 }
@@ -111,8 +111,8 @@ details[data-testid="stExpander"] summary {
 
 /* ── Title styling ── */
 .app-title {
-    font-size: 1.4rem;
-    font-weight: 700;
+    font-size: 1.2rem;
+    font-weight: 600;
     color: #1D1D1B;
     margin-bottom: 0;
     letter-spacing: -0.01em;
@@ -121,8 +121,8 @@ details[data-testid="stExpander"] summary {
     display: inline-block;
     background: #FDECEA;
     color: #E63329;
-    font-size: 0.7rem;
-    font-weight: 600;
+    font-size: 0.62rem;
+    font-weight: 500;
     padding: 2px 8px;
     border-radius: 4px;
     margin-left: 8px;
