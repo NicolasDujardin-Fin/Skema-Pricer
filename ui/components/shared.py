@@ -34,8 +34,8 @@ _CSS = """
     font-size: 13px !important;
 }
 section[data-testid="stSidebar"] {
-    background: #F7F6F5;
-    border-right: 1px solid #E0DEDA;
+    background: #ECEAE7;
+    border-right: 2px solid #C8C4BF;
     font-size: 11px !important;
 }
 section[data-testid="stSidebar"] p,
