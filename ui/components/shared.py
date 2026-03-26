@@ -17,11 +17,11 @@ _CSS = """
 <style>
 /* ── Global ── */
 [data-testid="stAppViewContainer"] {
-    background: #fafbfc;
+    background: #FAFAF9;
 }
 section[data-testid="stSidebar"] {
-    background: #f0f2f5;
-    border-right: 1px solid #dfe3e8;
+    background: #F7F6F5;
+    border-right: 1px solid #E0DEDA;
 }
 section[data-testid="stSidebar"] .stNumberInput label,
 section[data-testid="stSidebar"] .stSelectbox label,
@@ -46,38 +46,38 @@ section[data-testid="stSidebar"] .stDateInput {
 }
 [data-testid="stMetricLabel"] {
     font-size: 0.7rem !important;
-    color: #8b95a5 !important;
+    color: #6B6B6B !important;
     text-transform: uppercase;
     letter-spacing: 0.04em;
 }
 [data-testid="stMetricValue"] {
     font-size: 1.15rem !important;
     font-weight: 600 !important;
-    color: #1a1f36 !important;
+    color: #1D1D1B !important;
 }
 
 /* ── Hero metrics (first row) bigger ── */
 .hero-metric [data-testid="stMetricValue"] {
     font-size: 1.5rem !important;
     font-weight: 700 !important;
-    color: #0b1222 !important;
+    color: #1D1D1B !important;
 }
 .hero-metric [data-testid="stMetric"] {
-    border-left: 3px solid #3182ce;
-    background: #f7faff;
+    border-left: 3px solid #E63329;
+    background: #FEF7F6;
 }
 
 /* ── Section headers ── */
 .section-header {
     font-size: 0.82rem;
     font-weight: 600;
-    color: #8b95a5;
+    color: #6B6B6B;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     margin-top: 1.2rem;
     margin-bottom: 0.4rem;
     padding-bottom: 0.3rem;
-    border-bottom: 1px solid #e8ecf0;
+    border-bottom: 1px solid #E0DEDA;
 }
 
 /* ── Containers ── */
@@ -87,40 +87,40 @@ section[data-testid="stSidebar"] .stDateInput {
 
 /* ── Expanders ── */
 details[data-testid="stExpander"] {
-    border: 1px solid #e8ecf0 !important;
+    border: 1px solid #E0DEDA !important;
     border-radius: 6px !important;
     background: white !important;
 }
 details[data-testid="stExpander"] summary {
     font-weight: 600;
     font-size: 0.85rem;
-    color: #2d3748;
+    color: #1D1D1B;
 }
 
 /* ── Delta hedge bar ── */
 .hedge-bar {
-    background: #f0f4f8;
-    border-left: 3px solid #38a169;
+    background: #F7F6F5;
+    border-left: 3px solid #E63329;
     border-radius: 4px;
     padding: 8px 14px;
     font-size: 0.85rem;
-    color: #2d3748;
+    color: #1D1D1B;
     margin-bottom: 0.5rem;
 }
-.hedge-bar b { color: #1a202c; }
+.hedge-bar b { color: #1D1D1B; }
 
 /* ── Title styling ── */
 .app-title {
     font-size: 1.4rem;
     font-weight: 700;
-    color: #1a202c;
+    color: #1D1D1B;
     margin-bottom: 0;
     letter-spacing: -0.01em;
 }
 .app-badge {
     display: inline-block;
-    background: #ebf4ff;
-    color: #3182ce;
+    background: #FDECEA;
+    color: #E63329;
     font-size: 0.7rem;
     font-weight: 600;
     padding: 2px 8px;
