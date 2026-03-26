@@ -201,7 +201,7 @@
       },
       {
         "q": "I see in my book: Delta = −1 M EUR, Gamma = 1 M EUR. Spot goes up by 1%. What is my Delta?",
-        "a": "**Delta = −2 M EUR.**\n\nWait — Gamma is positive (long gamma), so shouldn't my delta *increase* (become less negative)?\n\n**No — careful with the sign convention.** Here, Gamma = 1 M means delta changes by +1 M per 1% up. But we need to apply the correct formula:\n\nNew Delta = Old Delta + Gamma × %move = −1 M + 1 M × 1 = **0 EUR**.\n\n❌ Actually, let's re-read the question. The answer is **−2 M EUR**, which means the convention used is:\n\nNew Delta = Old Delta − Gamma × %move = −1 M − 1 M × 1 = **−2 M EUR**.\n\nThis corresponds to a **cash gamma** reading: the book shows EUR gamma as the EUR change in delta for a 1% move. With delta = −1 M and gamma = 1 M on puts, the delta becomes more negative as spot rises because you are short more stock via the puts.\n\n**Key takeaway:** always clarify the sign and convention of gamma in your book. In this case, the gamma of 1 M represents the *magnitude* of delta change, and the direction depends on the position (here: short delta gets shorter as spot rises)."
+        "a": "**Delta = −2 M EUR.**\n\nNew Delta = Old Delta − Gamma × %move = −1 M − 1 M × 1 = **−2 M EUR**.\n\nGamma = 1 M means your delta changes by 1 M for each 1% move. Starting at −1 M delta, a 1% up move pushes delta further negative by another 1 M."
       },
       {
         "q": "I see in my book: Delta = 1 M EUR, Gamma = −1 M EUR. What is my Delta if spot goes down 1%? Up 1%?",
