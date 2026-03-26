@@ -37,10 +37,10 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
     st.markdown("")
-    active_tab = st.radio(
+    active_tab = st.selectbox(
         "Navigation",
         ["Options", "Bonds", "Turbo", "Discount Cert.", "Bonus Cert.", "Interview"],
-        horizontal=True, key="nav", label_visibility="collapsed",
+        key="nav", label_visibility="collapsed",
     )
     st.markdown("---")
 
