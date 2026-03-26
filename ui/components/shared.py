@@ -18,7 +18,7 @@ _CSS = """
 /* ── Header: transparent, only keep sidebar toggle ── */
 [data-testid="stHeader"] {
     background: transparent !important;
-    height: 2.5rem !important;
+    height: 3rem !important;
 }
 [data-testid="stHeader"] [data-testid="stToolbar"] {
     display: none !important;
