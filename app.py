@@ -22,8 +22,7 @@ from ui.tabs.bonus import bonus_tab
 from ui.tabs.interview import interview_tab
 
 # ── Page config & CSS ──
-st.set_page_config(page_title="Skema Pricer", layout="wide", page_icon="📈",
-                    initial_sidebar_state="expanded")
+st.set_page_config(page_title="Skema Pricer", layout="wide", page_icon="📈")
 inject_css()
 
 # ── Logo ──

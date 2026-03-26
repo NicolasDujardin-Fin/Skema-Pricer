@@ -15,15 +15,6 @@ import streamlit as st
 
 _CSS = """
 <style>
-/* ── Header: transparent, only keep sidebar toggle ── */
-[data-testid="stHeader"] {
-    background: transparent !important;
-    height: 3rem !important;
-}
-[data-testid="stHeader"] [data-testid="stToolbar"] {
-    display: none !important;
-}
-
 /* ── Global ── */
 [data-testid="stAppViewContainer"] {
     background: #FAFAF9;
@@ -38,8 +29,8 @@ _CSS = """
     font-size: 13px !important;
 }
 section[data-testid="stSidebar"] {
-    background: #ECEAE7;
-    border-right: 2px solid #C8C4BF;
+    background: #F7F6F5;
+    border-right: 1px solid #E0DEDA;
     font-size: 11px !important;
 }
 section[data-testid="stSidebar"] p,
@@ -82,66 +73,29 @@ section[data-testid="stSidebar"] .stCaption, section[data-testid="stSidebar"] sm
     font-size: 10px !important;
 }
 
-/* ── Force compact everywhere ── */
-.main .block-container {
-    padding-top: 0.8rem;
-    font-size: 12px !important;
-}
-.main .block-container p,
-.main .block-container span,
-.main .block-container label,
-.main .block-container td,
-.main .block-container th,
-.main .block-container li,
-.main .block-container input,
-.main .block-container select,
-.main .block-container button {
-    font-size: 12px !important;
-}
-.main .block-container input {
-    padding: 3px 8px !important;
-    height: auto !important;
-}
-.main .block-container [data-baseweb="input"] {
-    min-height: 0 !important;
-}
-
 /* ── Metric cards ── */
 [data-testid="stMetric"] {
     background: white;
     border: 1px solid #e8ecf0;
-    border-radius: 4px;
-    padding: 5px 8px 3px 8px !important;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+    border-radius: 6px;
+    padding: 10px 12px 6px 12px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
 }
 [data-testid="stMetricLabel"] {
-    font-size: 9px !important;
+    font-size: 0.6rem !important;
     color: #6B6B6B !important;
     text-transform: uppercase;
-    letter-spacing: 0.03em;
-    line-height: 1.1 !important;
-    margin-bottom: 0 !important;
-    min-height: 0 !important;
-}
-[data-testid="stMetricLabel"] p {
-    font-size: 9px !important;
-    line-height: 1.1 !important;
-    margin: 0 !important;
+    letter-spacing: 0.04em;
 }
 [data-testid="stMetricValue"] {
-    font-size: 13px !important;
+    font-size: 0.88rem !important;
     font-weight: 500 !important;
     color: #1D1D1B !important;
-    line-height: 1.2 !important;
-}
-[data-testid="stMetricValue"] div {
-    font-size: 13px !important;
 }
 
 /* ── Hero metrics (first row) bigger ── */
-.hero-metric [data-testid="stMetricValue"],
-.hero-metric [data-testid="stMetricValue"] div {
-    font-size: 14px !important;
+.hero-metric [data-testid="stMetricValue"] {
+    font-size: 1.05rem !important;
     font-weight: 600 !important;
     color: #1D1D1B !important;
 }
@@ -152,39 +106,32 @@ section[data-testid="stSidebar"] .stCaption, section[data-testid="stSidebar"] sm
 
 /* ── Section headers ── */
 .section-header {
-    font-size: 9px;
+    font-size: 0.68rem;
     font-weight: 500;
     color: #6B6B6B;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    margin-top: 0.6rem;
-    margin-bottom: 0.15rem;
-    padding-bottom: 0.15rem;
+    margin-top: 1.2rem;
+    margin-bottom: 0.4rem;
+    padding-bottom: 0.3rem;
     border-bottom: 1px solid #E0DEDA;
 }
 
-/* ── Reduce vertical gaps between elements ── */
-.main .block-container [data-testid="stVerticalBlock"] > div {
-    gap: 0.4rem !important;
-}
-.main .block-container [data-testid="stHorizontalBlock"] {
-    gap: 0.4rem !important;
+/* ── Containers ── */
+.block-container {
+    padding-top: 1.5rem;
 }
 
 /* ── Expanders ── */
 details[data-testid="stExpander"] {
     border: 1px solid #E0DEDA !important;
-    border-radius: 4px !important;
+    border-radius: 6px !important;
     background: white !important;
 }
 details[data-testid="stExpander"] summary {
     font-weight: 500;
-    font-size: 11px;
+    font-size: 0.73rem;
     color: #1D1D1B;
-    padding: 6px 10px !important;
-}
-details[data-testid="stExpander"] [data-testid="stExpanderDetails"] {
-    padding: 6px 10px !important;
 }
 
 /* ── Delta hedge bar ── */
