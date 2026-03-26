@@ -15,8 +15,12 @@ import streamlit as st
 
 _CSS = """
 <style>
-/* ── Header: hidden ── */
+/* ── Header: transparent, only keep sidebar toggle ── */
 [data-testid="stHeader"] {
+    background: transparent !important;
+    height: 2.5rem !important;
+}
+[data-testid="stHeader"] [data-testid="stToolbar"] {
     display: none !important;
 }
 
