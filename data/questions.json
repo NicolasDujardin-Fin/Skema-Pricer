@@ -332,5 +332,39 @@
         "a": "Tests are automated checks that verify your code still works after a change. Our tests check: \"does put-call parity hold?\", \"is American price ≥ European?\", \"does a par bond price at 1000?\".\n\n**Example:** A junior quant \"optimizes\" the Black-Scholes function and accidentally breaks the delta calculation. Without tests, nobody notices until a trader hedges with the wrong delta and loses €200K. With tests, the junior runs `pytest` before pushing — it fails in 2 seconds, they fix the bug, the desk never sees it.\n\nTests are your pre-trade checks. You run them before deploying, not after the P&L blows up."
       }
     ]
+  },
+  "interview_uv": {
+    "title": "uv vs pip — Modern Python Tooling",
+    "subtitle": "Why uv replaces pip + venv, and what pyproject.toml and lockfiles are — with trading desk examples.",
+    "questions": [
+      {
+        "q": "What happens if you install packages without a virtual environment?",
+        "a": "**You pollute the global Python and risk breaking other projects.**\n\n**Example:** You arrive as an intern on the desk. You install `pandas` for your risk report. Without knowing it, you just upgraded `pandas` for the entire system. The desk pricer that has been running for 2 years crashes on Monday morning because `pandas.DataFrame.append()` was removed in the new version. The trader has no prices. Nobody understands why. 2 hours of debugging later, they trace it back to you.\n\nWith a venv, your `pandas` is isolated inside your project. The desk pricer is untouched. Nobody knows you exist, and that's exactly what you want as an intern."
+      },
+      {
+        "q": "Why is uv better than pip + venv for managing environments?",
+        "a": "**uv removes the human error of forgetting to activate the venv.**\n\nWith pip:\n```\npython -m venv venv\nvenv\\Scripts\\activate\npip install pandas\n```\n3 commands, and you must remember to activate the venv every time you open a terminal. Forget once → you install into the global Python → chaos.\n\nWith uv:\n```\nuv add pandas\n```\nOne command. No venv to activate, no risk of forgetting. `uv run` always uses the project's isolated environment automatically."
+      },
+      {
+        "q": "What is pyproject.toml? Why is it better than requirements.txt?",
+        "a": "**It is the identity card of your project.** One file that describes everything: name, version, dependencies, test config.\n\n**Analogy:** It is the term sheet of a structured product. It describes the product (name, version), its components (dependencies), and the constraints (minimum versions). Anyone on the desk can read the term sheet and understand the product.\n\nBefore `pyproject.toml`, you had `requirements.txt` + `setup.py` + `setup.cfg` — three documents describing the same thing. That is like having the term sheet in 3 different versions, none of them up to date."
+      },
+      {
+        "q": "What is a lockfile (uv.lock)? Why does it matter?",
+        "a": "**The pyproject.toml says \"I want pandas >= 2.0\". But 2.0, 2.1, 2.2, 2.3? It matters.**\n\nThe lockfile says: \"we use pandas 2.3.3 exactly, with numpy 2.2.6 exactly\". Every version is pinned, including dependencies of dependencies.\n\n**Analogy:** `pyproject.toml` is your buy order: \"buy Apple between 180 and 200\". `uv.lock` is the fill confirmation: \"executed at 192.37 at 14:32:05 on NYSE\". The first gives the intent, the second gives the exact, reproducible fact.\n\n**Without lockfile:** you develop with `pandas 2.1`. Your colleague installs the project 3 months later, gets `pandas 2.3`, a function has changed, their code crashes. Same `requirements.txt`, different results.\n\n**With lockfile:** `uv sync` installs exactly the same versions. 3 months or 3 years later, same result."
+      },
+      {
+        "q": "What is wrong with pip freeze?",
+        "a": "**`pip freeze` dumps everything installed — including packages you never asked for.**\n\nYou installed 5 packages, freeze lists 40. You no longer know which ones you wanted and which came automatically. If you want to remove `pandas`, you do not know which 8 other packages you can also remove.\n\n**Analogy:** `pip freeze` is like taking a photo of your trading book at a point in time. You see 200 positions but you no longer know which ones are hedges and which are initial trades. If you want to unwind a trade, you do not know which associated hedges to also unwind.\n\n**uv** separates the two:\n- `pyproject.toml` = your initial positions (what you want)\n- `uv.lock` = the full book (positions + hedges, everything resolved automatically)"
+      },
+      {
+        "q": "uv is 10-100x faster than pip. Why does speed matter?",
+        "a": "**pip install: 45 seconds. uv sync: 2 seconds.**\n\nDuring your internship, you switch branches, break your venv, start over. With pip, every rebuild is a coffee break. With uv, it is instant. Over a day, you save 30 minutes.\n\n**Analogy:** `pip` is a SWIFT wire transfer (3 business days). `uv` is an instant SEPA transfer. Same result, 1000x faster."
+      },
+      {
+        "q": "What are the classic intern mistakes with pip, and how does uv prevent them?",
+        "a": "| Mistake | Consequence | How uv prevents it |\n|---|---|---|\n| Forget to activate venv | Installs into global Python, breaks other projects | `uv run` manages the venv automatically |\n| `pip install pandas` without version | Installs the latest, which may be incompatible | `uv add pandas` adds it to `pyproject.toml` with a constraint |\n| `pip freeze > requirements.txt` with too many packages | File is polluted, impossible to maintain | `pyproject.toml` only lists what you want |\n| Two colleagues with different versions | \"It works on my machine\" | `uv.lock` guarantees the same versions everywhere |\n| Delete the venv and forget what to reinstall | Project is dead, start from zero | `uv sync` recreates everything in 2 seconds from the lockfile |"
+      }
+    ]
   }
 }

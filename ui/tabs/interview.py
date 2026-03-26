@@ -12,3 +12,5 @@ def interview_tab():
     render_qa("interview_greeks")
     st.markdown("")
     render_qa("interview_it")
+    st.markdown("")
+    render_qa("interview_uv")
