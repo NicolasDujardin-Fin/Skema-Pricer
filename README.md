@@ -2,7 +2,7 @@
 
 Derivatives & fixed-income pricer built with Streamlit and Plotly.
 
-**Live app:** https://skema-pricer.streamlit.app/
+**Live app:** https://skema-pricer-production.up.railway.app/
 
 ## Tabs
 
